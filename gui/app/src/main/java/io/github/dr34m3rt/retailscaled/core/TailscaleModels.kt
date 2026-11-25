@@ -67,8 +67,8 @@ data class PeerStatus(
             ?: ""
 
     val displayName: String
-        get() = hostName.ifBlank {
-            dnsName.trimEnd('.').substringBefore('.')
+        get() = dnsName.trimEnd('.').substringBefore('.').ifBlank {
+            hostName
         }.ifBlank { ipv4.ifBlank { "未知设备" } }
 
     val connectionTypeLabel: String?
