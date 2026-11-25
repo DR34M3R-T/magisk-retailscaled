@@ -1,0 +1,147 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      bump:
+        type: choice
+        description: 'Module version bump type'
+        options:
+          - none
+          - major
+          - minor
+          - patch
+          - build
+        default: 'patch'
+      tailscale_version:
+        type: string
+        description: 'Upstream tailscale/tailscale version (e.g. 1.104.7 or latest)'
+        default: 'latest'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools (UPX & jq)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y upx-ucl jq zip
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Bump version
+        if: github.event_name == 'workflow_dispatch' && inputs.bump != 'none'
+        run: |
+          chmod +x .github/tools/*.sh
+          ./.github/tools/version-bump.sh "${{ inputs.bump }}"
+
+      - name: Sync version from tag
+        if: github.event_name == 'push'
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/}"
+          CURRENT_VERSION=$(grep '^version=' module.prop | cut -d'=' -f2)
+          if [[ "$TAG_VERSION" != "$CURRENT_VERSION" ]]; then
+            echo "Tag $TAG_VERSION doesn't match module.prop $CURRENT_VERSION, updating..."
+            VERSION_NUM=${TAG_VERSION#v}
+            IFS='.' read -r MAJOR MINOR PATCH BUILD <<< "$VERSION_NUM"
+            VERSION_CODE=$(printf "%02d%02d%02d%02d" "$MAJOR" "$MINOR" "$PATCH" "$BUILD")
+            sed -i "s/^version=.*/version=$TAG_VERSION/" module.prop
+            sed -i "s/^versionCode=.*/versionCode=$VERSION_CODE/" module.prop
+          fi
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(grep '^version=' module.prop | cut -d'=' -f2)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          BUILD=$(echo "$VERSION" | cut -d'.' -f4)
+          if [ "$BUILD" != "0" ]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Cross-compile upstream Tailscale for Android
+        env:
+          TAILSCALE_VERSION: ${{ inputs.tailscale_version || 'latest' }}
+        run: |
+          chmod +x .github/tools/*.sh
+          ./.github/tools/build-tailscale.sh tailscale/bin dist
+          echo "ts_version=$(cat dist/tailscale-version.txt)" >> "$GITHUB_OUTPUT"
+        id: tailscale
+
+      - name: Build RootTailscaleGUI Release APK
+        working-directory: gui
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Package Magisk Module Zips
+        run: ./.github/tools/build.sh "${{ steps.version.outputs.version }}"
+
+      - name: Create Release
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Magisk REtailscaled ${{ steps.version.outputs.version }} (Tailscale v${{ steps.tailscale.outputs.ts_version }})
+          files: |
+            dist/Magisk-REtailscaled-*.zip
+            dist/RootTailscaleGUI-*.apk
+            dist/tailscale_*.tgz
+          generate_release_notes: true
+          prerelease: ${{ steps.version.outputs.prerelease }}
+          body: |
+            ## Included Components
+            - **Upstream Tailscale**: [tailscale/tailscale v${{ steps.tailscale.outputs.ts_version }}](https://github.com/tailscale/tailscale/releases/tag/v${{ steps.tailscale.outputs.ts_version }}) (static `linux/arm64` & `linux/arm` for Android, `ts_include_cli`, UPX-compressed)
+            - **RootTailscaleGUI**: Material 3 Jetpack Compose control app + Quick Settings Tile (automatically installed on module flash)
+            - **Default Mode**: `userspace-networking` + local SOCKS5 (`127.0.0.1:1055`), zero conflict with FlClash / Android VPNs.
+
+            ## Downloads
+            - **Magisk-REtailscaled-${{ steps.version.outputs.version }}-full.zip** — Recommended offline package (includes `tailscaled`, `jq`, and `RootTailscaleGUI.apk`)
+            - **Magisk-REtailscaled-${{ steps.version.outputs.version }}.zip** — Lightweight package (downloads `tailscaled` binary on install)
+            - **RootTailscaleGUI-${{ steps.version.outputs.version }}.apk** — Standalone GUI APK
+
+      - name: Update JSON with release URLs
+        env:
+          ASSETS: ${{ steps.release.outputs.assets }}
+        run: |
+          ZIP_URL=$(echo '${{ steps.release.outputs.assets }}' | jq -r '.[] | select(.name | endswith("-full.zip")) | .browser_download_url')
+          for json_file in update.json update-arm.json update-arm64.json; do
+            jq --arg url "$ZIP_URL" '.zipUrl = $url' "$json_file" > "${json_file}.tmp" && mv "${json_file}.tmp" "$json_file"
+          done
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add module.prop update*.json CHANGELOG.md
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Bump version to ${{ steps.version.outputs.version }}"
+            if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+              git push
+            fi
+          fi

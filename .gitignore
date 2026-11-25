@@ -1,0 +1,8 @@
+build/
+dist/
+tailscale/bin/
+tailscale/apk/
+gui/.gradle/
+gui/build/
+gui/app/build/
+gui/local.properties
