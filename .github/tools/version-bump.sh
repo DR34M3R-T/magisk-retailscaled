@@ -21,13 +21,9 @@ esac
 NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}.${BUILD}"
 NEW_VERSION_CODE=$(printf "%02d%02d%02d%02d" "$MAJOR" "$MINOR" "$PATCH" "$BUILD")
 
-# Get commits since last tag
-LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-if [ -n "$LAST_TAG" ]; then
-  COMMITS=$(git log --oneline "$LAST_TAG"..HEAD --pretty=format:"%an|%h|%s" | grep -v -E "^github-actions|Bump version" | sed 's/^[^|]*|\([^|]*\)|/- \1 /')
-else
-  COMMITS=$(git log --oneline --pretty=format:"%an|%h|%s" | head -10 | grep -v -E "^github-actions|Bump version" | sed 's/^[^|]*|\([^|]*\)|/- \1 /')
-fi
+# Generate categorized changelog entries since last tag
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+COMMITS=$("$SCRIPT_DIR/generate-notes.sh")
 
 # Prepend to CHANGELOG.md
 if [ -n "$COMMITS" ]; then
@@ -35,7 +31,7 @@ if [ -n "$COMMITS" ]; then
   {
     echo "## $NEW_VERSION"
     echo ""
-    echo "$COMMITS"
+    printf "%s\n" "$COMMITS"
     echo ""
     cat CHANGELOG.md
   } > "$TEMP_CHANGELOG"

@@ -20,6 +20,10 @@ on:
         type: string
         description: 'Upstream tailscale/tailscale version (e.g. 1.104.7 or latest)'
         default: 'latest'
+      release_notes:
+        type: string
+        description: 'Optional custom release summary / highlights (Markdown supported)'
+        default: ''
 
 permissions:
   contents: write
@@ -30,6 +34,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install build tools (UPX & jq)
         run: |
@@ -105,6 +111,40 @@ jobs:
       - name: Package Magisk Module Zips
         run: ./.github/tools/build.sh "${{ steps.version.outputs.version }}"
 
+      - name: Generate release notes
+        env:
+          CUSTOM_NOTES: ${{ inputs.release_notes || '' }}
+          FULL_VER: ${{ steps.version.outputs.version }}
+          TS_VER: ${{ steps.tailscale.outputs.ts_version }}
+          REPO: ${{ github.repository }}
+        run: |
+          chmod +x .github/tools/*.sh
+          PREV_TAG=$(git tag --sort=-creatordate | grep -vxF "$FULL_VER" | head -n 1 || true)
+          CHANGES=$(./.github/tools/generate-notes.sh "$FULL_VER")
+          {
+            if [ -n "$CUSTOM_NOTES" ]; then
+              echo "## Highlights"
+              echo ""
+              printf "%s\n\n" "$CUSTOM_NOTES"
+            fi
+            echo "## What's Changed"
+            echo ""
+            printf "%s\n" "$CHANGES"
+            if [ -n "$PREV_TAG" ]; then
+              echo "**Full Changelog**: https://github.com/${REPO}/compare/${PREV_TAG}...${FULL_VER}"
+              echo ""
+            fi
+            echo "## Included Components"
+            echo "- **Upstream Tailscale**: [tailscale/tailscale v${TS_VER}](https://github.com/tailscale/tailscale/releases/tag/v${TS_VER}) (static \`linux/arm64\` & \`linux/arm\` for Android, \`ts_include_cli\`, UPX-compressed)"
+            echo "- **REtailscaled App (\`io.github.dr34m3rt.retailscaled\`)**: Material 3 Jetpack Compose control app + Quick Settings Tile (automatically installed on module flash, communicates via zero-Root local bridge)"
+            echo "- **Default Mode**: \`userspace-networking\` + local SOCKS5 (\`127.0.0.1:1055\`), zero conflict with FlClash / Android VPNs."
+            echo ""
+            echo "## Downloads"
+            echo "- **Magisk-REtailscaled-${FULL_VER}-full.zip** — Recommended offline package (includes \`tailscaled\`, \`tailscaled-bridge\`, \`jq\`, and \`REtailscaled.apk\`)"
+            echo "- **Magisk-REtailscaled-${FULL_VER}.zip** — Lightweight package (downloads binaries on install)"
+            echo "- **REtailscaled-${FULL_VER}.apk** — Companion GUI APK"
+          } > dist/release-notes.md
+
       - name: Create Release
         id: release
         uses: softprops/action-gh-release@v2
@@ -115,18 +155,9 @@ jobs:
             dist/Magisk-REtailscaled-*.zip
             dist/REtailscaled-*.apk
             dist/tailscale_*.tgz
-          generate_release_notes: true
+          body_path: dist/release-notes.md
+          generate_release_notes: false
           prerelease: ${{ steps.version.outputs.prerelease }}
-          body: |
-            ## Included Components
-            - **Upstream Tailscale**: [tailscale/tailscale v${{ steps.tailscale.outputs.ts_version }}](https://github.com/tailscale/tailscale/releases/tag/v${{ steps.tailscale.outputs.ts_version }}) (static `linux/arm64` & `linux/arm` for Android, `ts_include_cli`, UPX-compressed)
-            - **REtailscaled App (`io.github.dr34m3rt.retailscaled`)**: Material 3 Jetpack Compose control app + Quick Settings Tile (automatically installed on module flash, communicates via zero-Root local bridge)
-            - **Default Mode**: `userspace-networking` + local SOCKS5 (`127.0.0.1:1055`), zero conflict with FlClash / Android VPNs.
-
-            ## Downloads
-            - **Magisk-REtailscaled-${{ steps.version.outputs.version }}-full.zip** — Recommended offline package (includes `tailscaled`, `tailscaled-bridge`, `jq`, and `REtailscaled.apk`)
-            - **Magisk-REtailscaled-${{ steps.version.outputs.version }}.zip** — Lightweight package (downloads binaries on install)
-            - **REtailscaled-${{ steps.version.outputs.version }}.apk** — Companion GUI APK
 
       - name: Update JSON with release URLs
         env:
