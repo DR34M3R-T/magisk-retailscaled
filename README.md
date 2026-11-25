@@ -5,6 +5,8 @@
 
 受 [anasfanani/magisk-tailscaled](https://github.com/anasfanani/magisk-tailscaled) 启发重构的 Android Root 版 Tailscale 控制套件：通过 GitHub Actions 直接跟踪编译官方 [tailscale/tailscale](https://github.com/tailscale/tailscale) 最新稳定版，并内置轻量无广告的 **RootTailscaleGUI** 控制端（Jetpack Compose + Material 3 + 系统快捷设置磁贴）。
 
+> **Vibe Coding 说明**：本项目为一个 Vibe Coding 实践项目，由 **Antigravity + Gemini 4 Neon** 协作完成开发与真机调试。
+
 ## 核心特性
 
 - **不占用 Android VPN 通道**：底层以 Root 权限运行 `userspace-networking + 本地 SOCKS5 (127.0.0.1:1055)`，可与 **FlClash** 等代理客户端完美共存。
@@ -25,6 +27,44 @@
    > 若此前安装过旧版 `magisk-tailscaled`，请先卸载旧模块并重启一次，再刷入本模块。
 3. 打开 **RootTailscale** 应用并授予 Root 权限，按引导完成登录即可使用。
 4. 可在系统下拉控制中心编辑面板中添加 **Tailscale** 快捷磁贴，一键启停。
+
+## 配合 FlClash / Mihomo 客户端共存分流（示例扩展脚本）
+
+模块默认在 `127.0.0.1:1055` 暴露本地 SOCKS5 代理。在 **FlClash**（或其它基于 Mihomo 内核的代理客户端）中启用「扩展脚本 / Override Script」，粘贴以下脚本即可在不冲突的前提下将所有 Tailnet 流量转发给本模块，并在**规则模式**中看到独立的 `🔗 Tailscale` 策略组：
+
+```js
+function main(config) {
+  // 1. 添加本地 Root Tailscale SOCKS5 出站节点
+  const tailscaleProxy = {
+    name: "🔗 Tailscale SOCKS5",
+    type: "socks5",
+    server: "127.0.0.1",
+    port: 1055,
+    udp: true
+  };
+
+  if (!config.proxies) config.proxies = [];
+  config.proxies.push(tailscaleProxy);
+
+  // 2. 添加独立策略组（使节点在规则模式下可见、可随时切换直连）
+  if (!config["proxy-groups"]) config["proxy-groups"] = [];
+  config["proxy-groups"].unshift({
+    name: "🔗 Tailscale",
+    type: "select",
+    proxies: ["🔗 Tailscale SOCKS5", "DIRECT"]
+  });
+
+  // 3. 将 Tailscale 网段与 MagicDNS 规则插入到最前面
+  const tailscaleRules = [
+    "IP-CIDR,100.64.0.0/10,🔗 Tailscale,no-resolve",
+    "IP-CIDR6,fd7a:115c:a1e0::/48,🔗 Tailscale,no-resolve",
+    "DOMAIN-SUFFIX,ts.net,🔗 Tailscale"
+  ];
+  config.rules = [...tailscaleRules, ...(config.rules || [])];
+
+  return config;
+}
+```
 
 ## 在 GitHub Actions 一键更新 Tailscale
 
