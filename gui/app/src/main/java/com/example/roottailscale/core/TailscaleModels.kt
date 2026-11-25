@@ -105,9 +105,28 @@ data class AppSettings(
     val webUiPort: Int = 8088
 )
 
+data class ShellResult(
+    val exitCode: Int,
+    val stdout: String,
+    val stderr: String,
+    val timedOut: Boolean = false
+) {
+    val isSuccess: Boolean
+        get() = exitCode == 0 && !timedOut
+
+    val combinedOutput: String
+        get() = buildString {
+            if (stdout.isNotBlank()) append(stdout.trim())
+            if (stderr.isNotBlank()) {
+                if (isNotEmpty()) append('\n')
+                append(stderr.trim())
+            }
+        }
+}
+
 sealed interface TailscaleLoadState {
     data object Loading : TailscaleLoadState
-    data object NoRoot : TailscaleLoadState
+    data object BridgeUnavailable : TailscaleLoadState
     data class DaemonStopped(val detail: String) : TailscaleLoadState
     data class Ready(val status: TailscaleStatus) : TailscaleLoadState
     data class Error(val message: String) : TailscaleLoadState

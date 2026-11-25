@@ -96,7 +96,7 @@ jobs:
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build RootTailscaleGUI Release APK
+      - name: Build REtailscaled Release APK
         working-directory: gui
         run: |
           chmod +x gradlew
@@ -113,20 +113,20 @@ jobs:
           name: Magisk REtailscaled ${{ steps.version.outputs.version }}
           files: |
             dist/Magisk-REtailscaled-*.zip
-            dist/RootTailscaleGUI-*.apk
+            dist/REtailscaled-*.apk
             dist/tailscale_*.tgz
           generate_release_notes: true
           prerelease: ${{ steps.version.outputs.prerelease }}
           body: |
             ## Included Components
             - **Upstream Tailscale**: [tailscale/tailscale v${{ steps.tailscale.outputs.ts_version }}](https://github.com/tailscale/tailscale/releases/tag/v${{ steps.tailscale.outputs.ts_version }}) (static `linux/arm64` & `linux/arm` for Android, `ts_include_cli`, UPX-compressed)
-            - **RootTailscaleGUI**: Material 3 Jetpack Compose control app + Quick Settings Tile (automatically installed on module flash)
+            - **REtailscaled App (`io.github.dr34m3rt.retailscaled`)**: Material 3 Jetpack Compose control app + Quick Settings Tile (automatically installed on module flash, communicates via zero-Root local bridge)
             - **Default Mode**: `userspace-networking` + local SOCKS5 (`127.0.0.1:1055`), zero conflict with FlClash / Android VPNs.
 
             ## Downloads
-            - **Magisk-REtailscaled-${{ steps.version.outputs.version }}-full.zip** — Recommended offline package (includes `tailscaled`, `jq`, and `RootTailscaleGUI.apk`)
-            - **Magisk-REtailscaled-${{ steps.version.outputs.version }}.zip** — Lightweight package (downloads `tailscaled` binary on install)
-            - **RootTailscaleGUI-${{ steps.version.outputs.version }}.apk** — Standalone GUI APK
+            - **Magisk-REtailscaled-${{ steps.version.outputs.version }}-full.zip** — Recommended offline package (includes `tailscaled`, `tailscaled-bridge`, `jq`, and `REtailscaled.apk`)
+            - **Magisk-REtailscaled-${{ steps.version.outputs.version }}.zip** — Lightweight package (downloads binaries on install)
+            - **REtailscaled-${{ steps.version.outputs.version }}.apk** — Companion GUI APK
 
       - name: Update JSON with release URLs
         env:

@@ -151,16 +151,16 @@ set_perm_recursive "$TS_SCRIPTS_DIR/" 0 0 0755 0755 "u:object_r:system_file:s0"
 set_perm_recursive "$MODPATH/system/bin/" 0 0 0755 0755 "u:object_r:system_file:s0"
 set_perm "$MODPATH/service.sh" 0 0 0755 "u:object_r:system_file:s0"
 
-# Install bundled RootTailscaleGUI APK (if present in zip) as a normal user app
-if unzip -qqjo "$ZIPFILE" 'tailscale/apk/RootTailscaleGUI.apk' -d "$TMPDIR" 2>/dev/null && [ -f "$TMPDIR/RootTailscaleGUI.apk" ]; then
-	ui_print "- Installing RootTailscaleGUI app..."
-	cp -f "$TMPDIR/RootTailscaleGUI.apk" "$TS_DIR/RootTailscaleGUI.apk"
-	chmod 0644 "$TS_DIR/RootTailscaleGUI.apk"
-	if pm install -r "$TMPDIR/RootTailscaleGUI.apk" >/dev/null 2>&1; then
-		ui_print "- RootTailscaleGUI installed successfully."
+# Install bundled REtailscaled APK (if present in zip) as a normal user app
+if unzip -qqjo "$ZIPFILE" 'tailscale/apk/REtailscaled.apk' -d "$TMPDIR" 2>/dev/null && [ -f "$TMPDIR/REtailscaled.apk" ]; then
+	ui_print "- Installing REtailscaled app..."
+	cp -f "$TMPDIR/REtailscaled.apk" "$TS_DIR/REtailscaled.apk"
+	chmod 0644 "$TS_DIR/REtailscaled.apk"
+	if pm install -r "$TMPDIR/REtailscaled.apk" >/dev/null 2>&1; then
+		ui_print "- REtailscaled installed successfully."
 	else
 		ui_print "! Automatic APK install failed. You can manually install:"
-		ui_print "  $TS_DIR/RootTailscaleGUI.apk"
+		ui_print "  $TS_DIR/REtailscaled.apk"
 	fi
 fi
 

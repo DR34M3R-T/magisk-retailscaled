@@ -9,11 +9,11 @@
 
 ## 核心特性
 
-- **不占用 Android VPN 通道**：底层以 Root 权限运行 `userspace-networking + 本地 SOCKS5 (127.0.0.1:1055)`，可与 **FlClash** 等代理客户端完美共存。
+- **不占用 Android VPN 通道**：底层以 Root 权限运行 `userspace-networking + 本地 SOCKS5 (127.0.0.1:1055)`，可与 [**FlClash**](https://github.com/chen08209/FlClash) 等基于 [Mihomo](https://github.com/MetaCubeX/mihomo) 的代理客户端完美共存。
 - **紧跟官方最新 Tailscale**：仓库不提交任何二进制文件；GitHub Actions 直接从 [tailscale/tailscale](https://github.com/tailscale/tailscale) 拉取最新稳定版源码交叉编译为 Android 单文件合并二进制（`ts_include_cli` + 服务端特性裁剪 + UPX 压缩）。
-- **内置 RootTailscaleGUI 控制端（`gui/` + 免 Root 本地控制桥 `bridge/`）**：
-  - 刷入模块时自动通过 `pm install -r` 安装为普通用户应用（支持后续独立升级与卸载）。
-  - 模块内置极简本地控制桥（`tailscaled-bridge`，空闲 0% CPU，仅监听 `127.0.0.1:41688` + 随机 Token 鉴权并仅对本 App UID 可读），**App 默认无需申请 Magisk Root 授权即可完成全部控制与极致省电启停**（脱离模块单独安装 APK 时自动回退到 `su -c`）。
+- **内置 REtailscaled 控制端（`gui/` + 免 Root 本地控制桥 `bridge/`）**：
+  - 刷入模块时自动通过 `pm install -r` 安装为普通用户应用（包名 `io.github.dr34m3rt.retailscaled`，支持后续独立升级与卸载）。
+  - 模块内置极简本地控制桥（`tailscaled-bridge`，空闲 0% CPU，仅监听 `127.0.0.1:41688` + 随机 Token 鉴权并仅对本 App UID 可读），**App 与模块深度绑定、全程免 Root 运行**，无需在 Magisk 中授予 App 超级用户权限即可完成全部控制与极致省电启停。
   - 顶部状态卡片（总开关、本机 IP / SOCKS5 一键复制、Tailscale 内核与模块版本展示）。
   - 支持浏览器 OAuth 登录与 Auth Key / Headscale 自定义控制服务器登录。
   - 在线置顶设备列表、OS 图标、连接类型（`Direct` / `DERP`）、单设备实时 Ping 测速弹窗。
@@ -30,7 +30,7 @@
 
 ## 配合 FlClash / Mihomo 客户端共存分流（示例扩展脚本）
 
-模块默认在 `127.0.0.1:1055` 暴露本地 SOCKS5 代理。在 **FlClash**（或其它基于 Mihomo 内核的代理客户端）中启用「扩展脚本 / Override Script」，粘贴以下脚本即可在不冲突的前提下将所有 Tailnet 流量转发给本模块，并在**规则模式**中看到独立的 `🔗 Tailscale` 策略组：
+模块默认在 `127.0.0.1:1055` 暴露本地 SOCKS5 代理。在 [**FlClash**](https://github.com/chen08209/FlClash)（或其它基于 [Mihomo](https://github.com/MetaCubeX/mihomo) 内核的代理客户端）中启用「扩展脚本 / Override Script」，粘贴以下脚本即可在不冲突的前提下将所有 Tailnet 流量转发给本模块，并在**规则模式**中看到独立的 `🔗 Tailscale` 策略组：
 
 ```js
 function main(config) {
@@ -78,6 +78,8 @@ function main(config) {
 
 - [tailscale/tailscale](https://github.com/tailscale/tailscale) — Tailscale 开源核心代码与 CLI
 - [anasfanani/magisk-tailscaled](https://github.com/anasfanani/magisk-tailscaled) — 原版 Magisk Tailscaled 模块框架
+- [chen08209/FlClash](https://github.com/chen08209/FlClash) — 优秀的跨平台代理客户端（本项目共存分流方案主要适配对象）
+- [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo) — 强大的代理内核
 - [theshoqanebi/jq-build-for-android](https://github.com/theshoqanebi/jq-build-for-android) — Android 端 `jq` 二进制
 - [topjohnwu/Magisk](https://github.com/topjohnwu/Magisk) — Magisk
 

@@ -30,7 +30,6 @@ data class MainUiState(
     val loadState: TailscaleLoadState = TailscaleLoadState.Loading,
     val settings: AppSettings = AppSettings(),
     val moduleVersion: String? = null,
-    val isUsingBridge: Boolean = false,
     val isRefreshing: Boolean = false,
     val isToggling: Boolean = false,
     val isLoggingIn: Boolean = false,
@@ -68,7 +67,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
             val newState = repository.fetchStatus()
-            val modVer = if (newState !is TailscaleLoadState.NoRoot) {
+            val modVer = if (newState !is TailscaleLoadState.BridgeUnavailable) {
                 repository.readModuleVersion()
             } else {
                 null
@@ -77,7 +76,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 it.copy(
                     loadState = newState,
                     moduleVersion = modVer ?: it.moduleVersion,
-                    isUsingBridge = repository.isUsingBridge,
                     isRefreshing = false,
                     settings = repository.currentSettings()
                 )

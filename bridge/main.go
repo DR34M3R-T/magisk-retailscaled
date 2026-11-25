@@ -56,7 +56,7 @@ func main() {
 	flag.StringVar(&cfg.tailscaleBin, "tailscale", "/data/adb/tailscale/bin/tailscale", "path to tailscale CLI")
 	flag.StringVar(&cfg.serviceBin, "service", "/data/adb/tailscale/scripts/tailscaled.service", "path to tailscaled.service")
 	flag.StringVar(&cfg.modPropPath, "modprop", "/data/adb/modules/magisk-retailscaled/module.prop", "path to module.prop")
-	flag.StringVar(&cfg.appPkg, "app", "com.example.roottailscale", "Android package name allowed to read token")
+	flag.StringVar(&cfg.appPkg, "app", "io.github.dr34m3rt.retailscaled", "Android package name allowed to read token")
 	flag.StringVar(&cfg.tokenPath, "token-file", "/data/adb/tailscale/run/bridge.token", "internal token path")
 	flag.Parse()
 

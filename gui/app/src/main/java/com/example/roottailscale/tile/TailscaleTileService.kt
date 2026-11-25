@@ -41,7 +41,7 @@ class TailscaleTileService : TileService() {
             openMainApp()
             return
         }
-        if (current is TailscaleLoadState.NoRoot) {
+        if (current is TailscaleLoadState.BridgeUnavailable) {
             openMainApp()
             return
         }
@@ -75,8 +75,8 @@ class TailscaleTileService : TileService() {
         lastState = state
 
         when (state) {
-            is TailscaleLoadState.NoRoot -> {
-                updateTile(Tile.STATE_UNAVAILABLE, "无 Root 权限")
+            is TailscaleLoadState.BridgeUnavailable -> {
+                updateTile(Tile.STATE_UNAVAILABLE, "模块未就绪")
             }
 
             is TailscaleLoadState.DaemonStopped -> {
@@ -114,7 +114,7 @@ class TailscaleTileService : TileService() {
     private fun updateTile(state: Int, subtitle: String) {
         val tile = qsTile ?: return
         tile.state = state
-        tile.label = "Tailscale"
+        tile.label = "REtailscaled"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             tile.subtitle = subtitle
         }

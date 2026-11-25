@@ -34,13 +34,13 @@ for ARCH in arm arm64; do
   fi
 done
 
-# 3. Copy built RootTailscaleGUI APK if present
+# 3. Copy built REtailscaled APK if present
 if [ -f "gui/app/build/outputs/apk/release/app-release.apk" ]; then
-  cp "gui/app/build/outputs/apk/release/app-release.apk" "${APK_DIR}/RootTailscaleGUI.apk"
-  cp "gui/app/build/outputs/apk/release/app-release.apk" "${DIST_DIR}/RootTailscaleGUI-${VERSION}.apk"
+  cp "gui/app/build/outputs/apk/release/app-release.apk" "${APK_DIR}/REtailscaled.apk"
+  cp "gui/app/build/outputs/apk/release/app-release.apk" "${DIST_DIR}/REtailscaled-${VERSION}.apk"
 elif [ -f "gui/app/build/outputs/apk/debug/app-debug.apk" ]; then
-  cp "gui/app/build/outputs/apk/debug/app-debug.apk" "${APK_DIR}/RootTailscaleGUI.apk"
-  cp "gui/app/build/outputs/apk/debug/app-debug.apk" "${DIST_DIR}/RootTailscaleGUI-${VERSION}.apk"
+  cp "gui/app/build/outputs/apk/debug/app-debug.apk" "${APK_DIR}/REtailscaled.apk"
+  cp "gui/app/build/outputs/apk/debug/app-debug.apk" "${DIST_DIR}/REtailscaled-${VERSION}.apk"
 fi
 
 echo ""
@@ -48,7 +48,7 @@ echo "Creating lightweight zip (downloads tailscaled on install, includes GUI AP
 zip -9 -r "${DIST_DIR}/Magisk-REtailscaled-${VERSION}.zip" . \
   -x "*.git*" "dist/*" "gui/*" "bridge/*" "*.zip" "*.json" "*.md" "${BIN_DIR}/*" ".shellcheckrc" >/dev/null
 
-echo "Creating full zip (includes tailscaled + bridge + jq + RootTailscaleGUI APK)..."
+echo "Creating full zip (includes tailscaled + bridge + jq + REtailscaled APK)..."
 zip -9 -r "${DIST_DIR}/Magisk-REtailscaled-${VERSION}-full.zip" . \
   -x "*.git*" "dist/*" "gui/*" "bridge/*" "*.zip" "*.json" "*.md" ".shellcheckrc" >/dev/null
 

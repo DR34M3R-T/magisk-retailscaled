@@ -132,13 +132,9 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("RootTailscale", fontWeight = FontWeight.SemiBold)
+                        Text("REtailscaled", fontWeight = FontWeight.SemiBold)
                         Text(
-                            text = if (uiState.isUsingBridge) {
-                                "模块本地直连（免 Root）· 无 VPN 冲突"
-                            } else {
-                                "Userspace 模式 · 无 VPN 冲突"
-                            },
+                            text = "免 Root 模块直连 · 无 VPN 冲突",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -175,21 +171,21 @@ fun HomeScreen(
                             CircularProgressIndicator()
                             Spacer(Modifier.height(12.dp))
                             Text(
-                                "正在检测 Root 与 Tailscale 状态...",
+                                "正在连接 REtailscaled 模块服务...",
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
                     }
                 }
 
-                is TailscaleLoadState.NoRoot -> {
+                is TailscaleLoadState.BridgeUnavailable -> {
                     LazyColumn(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         item {
-                            NoRootCard(onRetry = { onRefresh(true) })
+                            BridgeUnavailableCard(onRetry = { onRefresh(true) })
                         }
                     }
                 }
@@ -332,7 +328,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun NoRootCard(onRetry: () -> Unit) {
+private fun BridgeUnavailableCard(onRetry: () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer
@@ -349,7 +345,7 @@ private fun NoRootCard(onRetry: () -> Unit) {
                 )
                 Spacer(Modifier.width(12.dp))
                 Text(
-                    text = "未获取到 Root 权限",
+                    text = "未检测到 REtailscaled 模块服务",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onErrorContainer
@@ -357,7 +353,7 @@ private fun NoRootCard(onRetry: () -> Unit) {
             }
             Spacer(Modifier.height(10.dp))
             Text(
-                text = "RootTailscale 需要通过 su 与底层 tailscaled / tailscale 交互，且不会占用系统 VPN 通道。请在 Magisk / KernelSU / APatch 中授予本应用超级用户权限后重试。",
+                text = "本应用与 Magisk REtailscaled 模块深度绑定，通过模块内置的本地控制桥免 Root 运行（无需授予本应用超级用户权限）。请确认已在 Magisk / KernelSU / APatch 中刷入并启用 Magisk REtailscaled 模块且重启设备后重试。",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onErrorContainer
             )
@@ -365,7 +361,7 @@ private fun NoRootCard(onRetry: () -> Unit) {
             Button(onClick = onRetry) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("重新检测 Root 权限")
+                Text("重新连接模块服务")
             }
         }
     }

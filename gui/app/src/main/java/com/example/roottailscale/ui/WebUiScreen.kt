@@ -49,21 +49,19 @@ fun WebUiScreen(
     repository: TailscaleRepository,
     onBack: () -> Unit
 ) {
-    var webProcess by remember { mutableStateOf<Process?>(null) }
     var targetUrl by remember { mutableStateOf<String?>(null) }
     var isReady by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
 
     LaunchedEffect(Unit) {
-        val (proc, url) = withContext(Dispatchers.IO) {
+        val url = withContext(Dispatchers.IO) {
             repository.startWebUi()
         }
-        webProcess = proc
         targetUrl = url
 
         if (url == null) {
-            errorMessage = "无法启动 tailscale web，请确认模块服务运行正常或已授予 Root 权限"
+            errorMessage = "无法启动 tailscale web，请确认 REtailscaled 模块服务运行正常"
             return@LaunchedEffect
         }
 
@@ -87,15 +85,14 @@ fun WebUiScreen(
         if (reachable) {
             isReady = true
         } else {
-            errorMessage = "tailscale web 启动超时，请确认设备已授权 Root 且 tailscaled 正在运行。"
+            errorMessage = "tailscale web 启动超时，请确认 tailscaled 正在运行。"
         }
     }
 
     DisposableEffect(Unit) {
         onDispose {
-            val procToStop = webProcess
             CoroutineScope(Dispatchers.IO).launch {
-                repository.stopWebUi(procToStop)
+                repository.stopWebUi()
             }
         }
     }
