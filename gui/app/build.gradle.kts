@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -5,7 +7,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
-val moduleProps = java.util.Properties().apply {
+val moduleProps = Properties().apply {
     val propFile = rootProject.file("../module.prop")
     if (propFile.isFile) {
         propFile.inputStream().use { load(it) }
