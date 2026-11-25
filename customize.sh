@@ -98,7 +98,7 @@ done
 ui_print "- Extracting files..."
 unzip -qqo "$ZIPFILE" -x 'META-INF/*' 'tailscale/*' 'gui/*' -d "$MODPATH"
 
-mkdir -p "$TS_DIR" "$TS_SCRIPTS_DIR" "$SERVICE_DIR" "$MODPATH/system/bin/"
+mkdir -p "$TS_DIR" "$TS_DIR/run" "$TS_SCRIPTS_DIR" "$MODPATH/system/bin/"
 unzip -qqjo "$ZIPFILE" 'tailscale/scripts/*' -d "$TS_SCRIPTS_DIR"
 unzip -qqjo "$ZIPFILE" 'tailscale/settings.sh' -d "$TS_DIR"
 
@@ -140,43 +140,8 @@ if unzip -qqjo "$ZIPFILE" 'tailscale/apk/RootTailscaleGUI.apk' -d "$TMPDIR" 2>/d
 	fi
 fi
 
-if [ ! -f "$SERVICE_DIR/tailscaled_service.sh" ]; then
-	# offer to move module scripts to general scripts
-	ui_print "-----------------------------------------------------------"
-	ui_print "- Do you want to move Module Scripts to General Scripts ?"
-	ui_print "- This option allows you to toggle the 'tailscaled' service"
-	ui_print "  on or off by enabling or disabling modules."
-	ui_print "- Your service directory is :"
-	ui_print "  '$SERVICE_DIR'."
-	ui_print "- You have 10 seconds to make a selection. Default is [Yes]."
-	ui_print "- [ Vol UP(+): Yes ]"
-	ui_print "- [ Vol DOWN(-): No ]"
-	timeout 10 sh -c '
-  while true; do
-    if getevent -lc 1 2>&1 | grep -q KEY_VOLUMEUP; then
-      echo "up"
-      break
-    elif getevent -lc 1 2>&1 | grep -q KEY_VOLUMEDOWN; then
-      echo "down"
-      break
-    fi
-  done
-' >"$TMPDIR/choice" || true
-
-	choice=$(cat "$TMPDIR/choice" 2>/dev/null)
-	if [ "$choice" = "up" ] || [ -z "$choice" ]; then
-		ui_print "- [Yes] Move Module Scripts to General Scripts."
-		mv -f "$MODPATH/service.sh" "$SERVICE_DIR/tailscaled_service.sh"
-	else
-		ui_print "- [No] Skip and keep using Module Scripts."
-	fi
-else
-	ui_print "- Move General Scripts."
-	mv -f "$MODPATH/service.sh" "$SERVICE_DIR/tailscaled_service.sh"
-fi
-
 ui_print "- Starting service in background."
-${TS_SCRIPTS_DIR}/start.sh postinstall 2>&1 &
+${TS_SCRIPTS_DIR}/start.sh postinstall >/dev/null 2>&1 &
 
 if [ ! -f "/system/bin/tailscale" ] || ! cmp --silent "/system/bin/tailscale" "$MODPATH/system/bin/tailscale"; then
 	ui_print "- Link file to /dev/."

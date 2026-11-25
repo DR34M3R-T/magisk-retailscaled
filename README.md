@@ -21,6 +21,7 @@
 
 1. 前往 [Releases](https://github.com/DR34M3R-T/magisk-retailscaled/releases) 下载 `Magisk-REtailscaled-vX.X.X.X-full.zip`。
 2. 在 Magisk / KernelSU / APatch 中刷入模块并重启手机（刷入时会自动安装 **RootTailscale** 应用）。
+   > 若此前安装过旧版 `magisk-tailscaled`，请先卸载旧模块并重启一次，再刷入本模块。
 3. 打开 **RootTailscale** 应用并授予 Root 权限，按引导完成登录即可使用。
 4. 可在系统下拉控制中心编辑面板中添加 **Tailscale** 快捷磁贴，一键启停。
 

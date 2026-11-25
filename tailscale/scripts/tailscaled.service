@@ -30,6 +30,7 @@ set -e
 DIR=$(dirname "$(realpath "$0")")
 # shellcheck source=../settings.sh
 . "$DIR"/../settings.sh
+mkdir -p "${TS_RUN_DIR}"
 scripts_name=$(basename "$0")
 
 program(){
