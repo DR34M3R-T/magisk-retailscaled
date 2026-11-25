@@ -26,8 +26,72 @@ git clone --depth 1 --branch "$TS_TAG" https://github.com/tailscale/tailscale.gi
 
 cd "$WORK_DIR/tailscale"
 
+# Inject an Android hostinfo hook (uses upstream RegisterHostinfoNewHook, no patches to upstream files)
+cat <<'EOF' > cmd/tailscaled/android_hostinfo.go
+package main
+
+import (
+	"os"
+	"os/exec"
+	"strings"
+	"sync"
+
+	"tailscale.com/hostinfo"
+	"tailscale.com/tailcfg"
+)
+
+func init() {
+	var (
+		once          sync.Once
+		androidOS     string
+		androidVer    string
+		androidDevice string
+	)
+	load := func() {
+		androidOS = strings.TrimSpace(os.Getenv("TS_HOSTINFO_OS"))
+		if androidOS == "" {
+			androidOS = "android"
+		}
+		androidVer = strings.TrimSpace(os.Getenv("TS_HOSTINFO_OS_VERSION"))
+		if androidVer == "" {
+			if out, err := exec.Command("getprop", "ro.build.version.release").Output(); err == nil {
+				androidVer = strings.TrimSpace(string(out))
+			}
+		}
+		var brand, model string
+		if out, err := exec.Command("getprop", "ro.product.brand").Output(); err == nil {
+			brand = strings.TrimSpace(string(out))
+		}
+		if out, err := exec.Command("getprop", "ro.product.model").Output(); err == nil {
+			model = strings.TrimSpace(string(out))
+		}
+		if model != "" {
+			if brand != "" && !strings.HasPrefix(strings.ToLower(model), strings.ToLower(brand)) {
+				androidDevice = brand + " " + model
+			} else {
+				androidDevice = model
+			}
+		}
+	}
+
+	hostinfo.RegisterHostinfoNewHook(func(hi *tailcfg.Hostinfo) {
+		once.Do(load)
+		hi.OS = androidOS
+		if androidVer != "" {
+			hi.OSVersion = androidVer
+		}
+		if androidDevice != "" {
+			hi.DeviceModel = androidDevice
+		}
+		hi.Distro = ""
+		hi.DistroVersion = ""
+		hi.DistroCodeName = ""
+	})
+}
+EOF
+
 BUILD_TAGS="ts_include_cli,ts_omit_aws,ts_omit_bird,ts_omit_c2n,ts_omit_kube,ts_omit_synology,ts_omit_tap,ts_omit_tpm,ts_omit_wakeonlan"
-LDFLAGS="-s -w -X tailscale.com/version.longStamp=${TS_VER}-android -X tailscale.com/version.shortStamp=${TS_VER}"
+LDFLAGS="-s -w -X 'tailscale.com/version.longStamp=${TS_VER} (Magisk)' -X tailscale.com/version.shortStamp=${TS_VER}"
 
 for ARCH in arm64 arm; do
   echo "- Cross-compiling tailscaled (${TS_TAG}) for linux/${ARCH}..."
