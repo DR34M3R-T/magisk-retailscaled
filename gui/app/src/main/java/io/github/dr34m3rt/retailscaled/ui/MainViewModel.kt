@@ -2,6 +2,7 @@ package io.github.dr34m3rt.retailscaled.ui
 
 import android.app.Application
 import android.content.ComponentName
+import android.os.SystemClock
 import android.service.quicksettings.TileService
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,6 +15,7 @@ import io.github.dr34m3rt.retailscaled.core.TailscaleRepository
 import io.github.dr34m3rt.retailscaled.tile.TailscaleTileService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -58,6 +60,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh(showPullIndicator: Boolean = false) {
         viewModelScope.launch {
+            val startTime = SystemClock.elapsedRealtime()
             _uiState.update {
                 it.copy(
                     isRefreshing = showPullIndicator,
@@ -73,6 +76,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 repository.readModuleVersion()
             } else {
                 null
+            }
+            if (showPullIndicator) {
+                val elapsed = SystemClock.elapsedRealtime() - startTime
+                if (elapsed < 350L) {
+                    delay(350L - elapsed)
+                }
             }
             _uiState.update {
                 it.copy(
