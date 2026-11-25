@@ -1,4 +1,4 @@
-package com.example.roottailscale.ui
+package io.github.dr34m3rt.retailscaled.ui
 
 import android.annotation.SuppressLint
 import android.webkit.WebResourceError
@@ -33,7 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.example.roottailscale.core.TailscaleRepository
+import io.github.dr34m3rt.retailscaled.core.TailscaleRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay

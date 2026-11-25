@@ -8,10 +8,10 @@
 -keepclasseswithmembers class kotlinx.serialization.json.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
--keep,includedescriptorclasses class com.example.roottailscale.core.**$$serializer { *; }
--keepclassmembers class com.example.roottailscale.core.** {
+-keep,includedescriptorclasses class io.github.dr34m3rt.retailscaled.core.**$$serializer { *; }
+-keepclassmembers class io.github.dr34m3rt.retailscaled.core.** {
     *** Companion;
 }
--keepclasseswithmembers class com.example.roottailscale.core.** {
+-keepclasseswithmembers class io.github.dr34m3rt.retailscaled.core.** {
     kotlinx.serialization.KSerializer serializer(...);
 }

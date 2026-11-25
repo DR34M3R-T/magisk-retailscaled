@@ -1,23 +1,25 @@
-package com.example.roottailscale.ui
+package io.github.dr34m3rt.retailscaled.ui
 
 import android.app.Application
 import android.content.ComponentName
 import android.service.quicksettings.TileService
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.roottailscale.core.AppSettings
-import com.example.roottailscale.core.PeerStatus
-import com.example.roottailscale.core.PingEntry
-import com.example.roottailscale.core.SettingsStore
-import com.example.roottailscale.core.TailscaleLoadState
-import com.example.roottailscale.core.TailscaleRepository
-import com.example.roottailscale.tile.TailscaleTileService
+import io.github.dr34m3rt.retailscaled.core.AppSettings
+import io.github.dr34m3rt.retailscaled.core.PeerStatus
+import io.github.dr34m3rt.retailscaled.core.PingEntry
+import io.github.dr34m3rt.retailscaled.core.SettingsStore
+import io.github.dr34m3rt.retailscaled.core.TailscaleLoadState
+import io.github.dr34m3rt.retailscaled.core.TailscaleRepository
+import io.github.dr34m3rt.retailscaled.tile.TailscaleTileService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class PingDialogState(
     val peer: PeerStatus,
@@ -114,7 +116,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val result = repository.startBrowserLogin { url ->
                 opened = true
                 _uiState.update { it.copy(capturedAuthUrl = url) }
-                onOpenUrl(url)
+                withContext(Dispatchers.Main) {
+                    onOpenUrl(url)
+                }
             }
             val newState = repository.fetchStatus()
             _uiState.update {
@@ -123,8 +127,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     isLoggingIn = false,
                     snackbarMessage = when {
                         opened -> "已捕获登录链接并尝试打开浏览器"
-                        result.isSuccess -> "登录命令执行完成"
-                        else -> result.combinedOutput.ifBlank { "获取登录链接失败" }
+                        else -> result.combinedOutput.ifBlank { "获取登录链接失败，请检查网络或代理设置" }
                     }
                 )
             }

@@ -1,4 +1,4 @@
-package com.example.roottailscale.core
+package io.github.dr34m3rt.retailscaled.core
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
@@ -44,7 +44,9 @@ private data class BridgeDownRequest(
 
 @Serializable
 private data class BridgeBrowserLoginRequest(
-    val hostname: String
+    val acceptDnsFalse: Boolean,
+    val hostname: String,
+    val socks5Address: String
 )
 
 @Serializable
@@ -181,12 +183,14 @@ class BridgeClient(context: Context) {
     )
 
     suspend fun streamBrowserLogin(
+        acceptDnsFalse: Boolean,
         hostname: String,
+        socks5Address: String,
         onLine: suspend (String) -> Unit
     ): ShellResult? = postStreaming(
         path = "/api/login/browser",
-        payload = json.encodeToString(BridgeBrowserLoginRequest(hostname)),
-        readTimeoutMs = 20_000,
+        payload = json.encodeToString(BridgeBrowserLoginRequest(acceptDnsFalse, hostname, socks5Address)),
+        readTimeoutMs = 15_000,
         onLine = onLine
     )
 

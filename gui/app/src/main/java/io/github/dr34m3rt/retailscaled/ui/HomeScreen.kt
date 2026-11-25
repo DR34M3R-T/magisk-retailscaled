@@ -1,4 +1,4 @@
-package com.example.roottailscale.ui
+package io.github.dr34m3rt.retailscaled.ui
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -79,10 +79,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.roottailscale.core.AppSettings
-import com.example.roottailscale.core.PeerStatus
-import com.example.roottailscale.core.TailscaleLoadState
-import com.example.roottailscale.core.TailscaleStatus
+import io.github.dr34m3rt.retailscaled.core.AppSettings
+import io.github.dr34m3rt.retailscaled.core.PeerStatus
+import io.github.dr34m3rt.retailscaled.core.TailscaleLoadState
+import io.github.dr34m3rt.retailscaled.core.TailscaleStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -250,6 +250,7 @@ fun HomeScreen(
                                 LoginGuideCard(
                                     authUrlFromStatus = status.authUrl,
                                     capturedAuthUrl = uiState.capturedAuthUrl,
+                                    healthWarnings = status.health.orEmpty(),
                                     isLoggingIn = uiState.isLoggingIn,
                                     onBrowserLogin = { onBrowserLogin(openUrl) },
                                     onOpenUrl = openUrl,
@@ -400,7 +401,7 @@ private fun DaemonStoppedCard(
             }
             Spacer(Modifier.height(10.dp))
             Text(
-                text = "未检测到运行中的 tailscaled 守护进程。你可以尝试一键拉起（userspace-networking + SOCKS5），或在设置中检查 tailscale / socket 路径。",
+                text = "未检测到运行中的 tailscaled 守护进程。你可以尝试一键拉起（userspace-networking + SOCKS5），或在进阶设置中检查运行参数。",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -435,7 +436,7 @@ private fun DaemonStoppedCard(
                     Text("启动 Tailscale")
                 }
                 OutlinedButton(onClick = onOpenSettings) {
-                    Text("检查路径设置")
+                    Text("进阶设置")
                 }
             }
         }
@@ -479,7 +480,7 @@ private fun ErrorCard(
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = onRetry) { Text("重试") }
-                OutlinedButton(onClick = onOpenSettings) { Text("路径设置") }
+                OutlinedButton(onClick = onOpenSettings) { Text("进阶设置") }
             }
         }
     }
@@ -633,6 +634,7 @@ private fun StatusHeaderCard(
 private fun LoginGuideCard(
     authUrlFromStatus: String,
     capturedAuthUrl: String?,
+    healthWarnings: List<String>,
     isLoggingIn: Boolean,
     onBrowserLogin: () -> Unit,
     onOpenUrl: (String) -> Unit,
@@ -643,6 +645,7 @@ private fun LoginGuideCard(
     var loginServer by rememberSaveable { mutableStateOf("") }
     val effectiveUrl = capturedAuthUrl?.takeIf { it.isNotBlank() }
         ?: authUrlFromStatus.takeIf { it.isNotBlank() }
+    val visibleWarnings = healthWarnings.filter { it.isNotBlank() }
 
     Card(
         colors = CardDefaults.cardColors(
@@ -656,6 +659,27 @@ private fun LoginGuideCard(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
+            if (visibleWarnings.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        visibleWarnings.forEach { warning ->
+                            Text(
+                                text = warning,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+            }
             Spacer(Modifier.height(6.dp))
             Text(
                 text = "方式 A：通过浏览器完成 OAuth 授权",

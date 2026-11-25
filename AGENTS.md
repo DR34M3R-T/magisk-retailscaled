@@ -12,7 +12,7 @@ magisk-REtailscaled/
 │   ├── go.mod
 │   └── main.go                  # Bearer-token auth, LocalAPI status proxy, daemon/CLI control
 ├── gui/                         # Android Kotlin + Jetpack Compose + Material 3 companion app
-│   └── app/src/main/java/com/example/roottailscale/
+│   └── app/src/main/java/io/github/dr34m3rt/retailscaled/
 │       ├── MainActivity.kt
 │       ├── core/
 │       │   ├── BridgeClient.kt          # Sole transport to tailscaled-bridge (NO su!)

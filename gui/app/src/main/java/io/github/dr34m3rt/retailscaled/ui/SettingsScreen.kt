@@ -1,4 +1,4 @@
-package com.example.roottailscale.ui
+package io.github.dr34m3rt.retailscaled.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,9 +43,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.example.roottailscale.core.AppSettings
-import com.example.roottailscale.core.PowerSaveMode
-import com.example.roottailscale.core.TailscaleLoadState
+import io.github.dr34m3rt.retailscaled.core.AppSettings
+import io.github.dr34m3rt.retailscaled.core.PowerSaveMode
+import io.github.dr34m3rt.retailscaled.core.TailscaleLoadState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,10 +57,6 @@ fun SettingsScreen(
     onBack: () -> Unit
 ) {
     val current = uiState.settings
-    var tailscalePath by rememberSaveable(current.tailscalePath) { mutableStateOf(current.tailscalePath) }
-    var tailscaledPath by rememberSaveable(current.tailscaledPath) { mutableStateOf(current.tailscaledPath) }
-    var socketPath by rememberSaveable(current.socketPath) { mutableStateOf(current.socketPath) }
-    var stateDir by rememberSaveable(current.stateDir) { mutableStateOf(current.stateDir) }
     var acceptDnsFalse by rememberSaveable(current.acceptDnsFalse) { mutableStateOf(current.acceptDnsFalse) }
     var socks5Address by rememberSaveable(current.socks5Address) { mutableStateOf(current.socks5Address) }
     var powerSaveModeName by rememberSaveable(current.powerSaveMode) { mutableStateOf(current.powerSaveMode.name) }
@@ -254,14 +250,14 @@ fun SettingsScreen(
                 }
             }
 
-            // 4. Default Parameters & Custom Paths
+            // 4. Default Parameters
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "路径与默认参数",
+                        text = "默认参数",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -297,42 +293,6 @@ fun SettingsScreen(
                     )
 
                     OutlinedTextField(
-                        value = tailscalePath,
-                        onValueChange = { tailscalePath = it },
-                        label = { Text("tailscale 二进制路径") },
-                        placeholder = { Text("tailscale") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = tailscaledPath,
-                        onValueChange = { tailscaledPath = it },
-                        label = { Text("tailscaled 守护进程路径") },
-                        placeholder = { Text("tailscaled") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = socketPath,
-                        onValueChange = { socketPath = it },
-                        label = { Text("--socket 路径（留空则使用默认）") },
-                        placeholder = { Text("/data/adb/tailscale/run/tailscaled.sock") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
-                        value = stateDir,
-                        onValueChange = { stateDir = it },
-                        label = { Text("tailscaled 状态目录 (--statedir)") },
-                        placeholder = { Text("/data/adb/tailscale/state") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    OutlinedTextField(
                         value = webUiPortText,
                         onValueChange = { webUiPortText = it.filter(Char::isDigit) },
                         label = { Text("WebUI 本地端口") },
@@ -348,10 +308,6 @@ fun SettingsScreen(
                                 .getOrDefault(PowerSaveMode.LIGHT)
                             onSaveSettings(
                                 AppSettings(
-                                    tailscalePath = tailscalePath.trim().ifBlank { "tailscale" },
-                                    tailscaledPath = tailscaledPath.trim().ifBlank { "tailscaled" },
-                                    socketPath = socketPath.trim(),
-                                    stateDir = stateDir.trim().ifBlank { "/data/adb/tailscale/state" },
                                     acceptDnsFalse = acceptDnsFalse,
                                     socks5Address = socks5Address.trim().ifBlank { "127.0.0.1:1055" },
                                     powerSaveMode = parsedMode,

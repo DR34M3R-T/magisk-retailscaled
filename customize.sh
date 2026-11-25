@@ -45,8 +45,6 @@ elif [ "$KSU" = true ] && [ "$KSU_VER_CODE" -lt 10670 ]; then
 	abort "error: Please update your KernelSU and KernelSU Manager"
 fi
 
-SERVICE_DIR="/data/adb/service.d"
-
 TS_DIR="/data/adb/tailscale"
 TS_BIN_DIR="$TS_DIR/bin"
 TS_SCRIPTS_DIR="$TS_DIR/scripts"
@@ -175,11 +173,11 @@ if [ ! -f "/system/bin/tailscale" ] || ! cmp --silent "/system/bin/tailscale" "$
 	ui_print "-----------------------------------------------------------"
 	ui_print " Instructions"
 	ui_print "-----------------------------------------------------------"
-	ui_print "- Open the RootTailscale app (grant Magisk Root permission)"
+	ui_print "- Open the REtailscaled app (no Root permission needed)"
 	ui_print "  or use /dev/tailscale before rebooting."
 	ui_print "- Default mode: userspace-networking + SOCKS5 (127.0.0.1:1055)."
 	ui_print "- After reboot, you can use tailscale and tailscaled.service directly."
 else
-	ui_print "- Open the RootTailscale app or run: su -c 'tailscale status'"
+	ui_print "- Open the REtailscaled app or run: su -c 'tailscale status'"
 fi
 [ -n "${DEBUG:-}" ] && { set +ue; } || true

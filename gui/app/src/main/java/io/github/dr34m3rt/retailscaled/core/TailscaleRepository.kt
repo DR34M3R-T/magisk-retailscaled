@@ -1,4 +1,4 @@
-package com.example.roottailscale.core
+package io.github.dr34m3rt.retailscaled.core
 
 import android.content.Context
 import android.os.Build
@@ -78,8 +78,13 @@ class TailscaleRepository(
     }
 
     suspend fun startBrowserLogin(onAuthUrlFound: suspend (String) -> Unit): ShellResult {
+        val settings = currentSettings()
         var foundUrl = false
-        return bridgeClient.streamBrowserLogin(defaultDeviceHostname()) { line ->
+        return bridgeClient.streamBrowserLogin(
+            acceptDnsFalse = settings.acceptDnsFalse,
+            hostname = defaultDeviceHostname(),
+            socks5Address = settings.socks5Address
+        ) { line ->
             if (!foundUrl) {
                 val match = urlRegex.find(line)
                 if (match != null) {

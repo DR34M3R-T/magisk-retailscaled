@@ -44,9 +44,8 @@ type bridgeServer struct {
 	token      string
 	unixClient *http.Client
 
-	webMu   sync.Mutex
-	webCmd  *exec.Cmd
-	webPort int
+	webMu  sync.Mutex
+	webCmd *exec.Cmd
 }
 
 func main() {
@@ -182,16 +181,13 @@ func (s *bridgeServer) withAuth(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func (s *bridgeServer) readModuleVersion() string {
-	paths := []string{s.cfg.modPropPath, "/data/adb/modules/magisk-tailscaled/module.prop"}
-	for _, p := range paths {
-		data, err := os.ReadFile(p)
-		if err != nil {
-			continue
-		}
-		for _, line := range strings.Split(string(data), "\n") {
-			if strings.HasPrefix(line, "version=") {
-				return strings.TrimSpace(strings.TrimPrefix(line, "version="))
-			}
+	data, err := os.ReadFile(s.cfg.modPropPath)
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "version=") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "version="))
 		}
 	}
 	return ""
@@ -306,17 +302,115 @@ func (s *bridgeServer) handleDown(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *bridgeServer) fetchHealthErrors(ctx context.Context) []string {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://local-tailscaled.sock/localapi/v0/status", nil)
+	if err != nil {
+		return nil
+	}
+	resp, err := s.unixClient.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil
+	}
+	var st struct {
+		Health []string `json:"Health"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&st); err != nil {
+		return nil
+	}
+	return st.Health
+}
+
 func (s *bridgeServer) handleBrowserLogin(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Hostname string `json:"hostname"`
+		AcceptDnsFalse bool   `json:"acceptDnsFalse"`
+		Hostname       string `json:"hostname"`
+		Socks5Address  string `json:"socks5Address"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
+
+	socks := strings.TrimSpace(body.Socks5Address)
+	if socks == "" {
+		socks = "127.0.0.1:1055"
+	}
+	s.ensureDaemon(socks)
 
 	args := []string{"login"}
 	if h := strings.TrimSpace(body.Hostname); h != "" {
 		args = append(args, "--hostname="+h)
 	}
-	s.streamTailscale(w, r.Context(), 15*time.Second, args...)
+	if body.AcceptDnsFalse {
+		args = append(args, "--accept-dns=false")
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, s.cfg.tailscaleBin, args...)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	cmd.Stderr = cmd.Stdout
+
+	if err := cmd.Start(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var (
+		lines      []string
+		foundURL   bool
+		headerSent bool
+	)
+	flusher, _ := w.(http.Flusher)
+
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		line := scanner.Text()
+		lines = append(lines, line)
+		if !foundURL && (strings.Contains(line, "https://") || strings.Contains(line, "http://")) {
+			foundURL = true
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-cache")
+			w.WriteHeader(http.StatusOK)
+			headerSent = true
+			for _, buffered := range lines {
+				_, _ = fmt.Fprintln(w, buffered)
+			}
+			if flusher != nil {
+				flusher.Flush()
+			}
+		} else if headerSent {
+			_, _ = fmt.Fprintln(w, line)
+			if flusher != nil {
+				flusher.Flush()
+			}
+		}
+	}
+	_ = cmd.Wait()
+
+	if foundURL {
+		return
+	}
+
+	var errParts []string
+	if out := strings.TrimSpace(strings.Join(lines, "\n")); out != "" && out != "context canceled" && out != "context deadline exceeded" {
+		errParts = append(errParts, out)
+	}
+	healthCtx, healthCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer healthCancel()
+	if health := s.fetchHealthErrors(healthCtx); len(health) > 0 {
+		errParts = append(errParts, strings.Join(health, "\n"))
+	}
+	if len(errParts) == 0 {
+		errParts = append(errParts, "获取登录链接超时，请检查网络或代理连通性")
+	}
+	http.Error(w, strings.Join(errParts, "\n"), http.StatusBadGateway)
 }
 
 func (s *bridgeServer) handleAuthKeyLogin(w http.ResponseWriter, r *http.Request) {
@@ -398,7 +492,6 @@ func (s *bridgeServer) handleWebUiStart(w http.ResponseWriter, r *http.Request) 
 
 	s.webMu.Lock()
 	s.webCmd = cmd
-	s.webPort = port
 	s.webMu.Unlock()
 
 	go func() { _ = cmd.Wait() }()

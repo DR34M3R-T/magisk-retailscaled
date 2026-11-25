@@ -1,4 +1,4 @@
-package com.example.roottailscale.core
+package io.github.dr34m3rt.retailscaled.core
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -95,10 +95,6 @@ enum class PowerSaveMode {
 }
 
 data class AppSettings(
-    val tailscalePath: String = "tailscale",
-    val tailscaledPath: String = "tailscaled",
-    val socketPath: String = "",
-    val stateDir: String = "/data/adb/tailscale/state",
     val acceptDnsFalse: Boolean = true,
     val socks5Address: String = "127.0.0.1:1055",
     val powerSaveMode: PowerSaveMode = PowerSaveMode.LIGHT,
@@ -108,11 +104,10 @@ data class AppSettings(
 data class ShellResult(
     val exitCode: Int,
     val stdout: String,
-    val stderr: String,
-    val timedOut: Boolean = false
+    val stderr: String
 ) {
     val isSuccess: Boolean
-        get() = exitCode == 0 && !timedOut
+        get() = exitCode == 0
 
     val combinedOutput: String
         get() = buildString {

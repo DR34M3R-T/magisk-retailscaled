@@ -1,4 +1,4 @@
-package com.example.roottailscale.ui.theme
+package io.github.dr34m3rt.retailscaled.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -46,7 +46,7 @@ private val DarkColors = darkColorScheme(
 )
 
 @Composable
-fun RootTailscaleTheme(
+fun REtailscaledTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit

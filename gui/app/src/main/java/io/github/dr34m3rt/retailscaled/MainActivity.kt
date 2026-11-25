@@ -1,4 +1,4 @@
-package com.example.roottailscale
+package io.github.dr34m3rt.retailscaled
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -11,11 +11,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import com.example.roottailscale.ui.HomeScreen
-import com.example.roottailscale.ui.MainViewModel
-import com.example.roottailscale.ui.SettingsScreen
-import com.example.roottailscale.ui.WebUiScreen
-import com.example.roottailscale.ui.theme.RootTailscaleTheme
+import io.github.dr34m3rt.retailscaled.ui.HomeScreen
+import io.github.dr34m3rt.retailscaled.ui.MainViewModel
+import io.github.dr34m3rt.retailscaled.ui.SettingsScreen
+import io.github.dr34m3rt.retailscaled.ui.WebUiScreen
+import io.github.dr34m3rt.retailscaled.ui.theme.REtailscaledTheme
 
 private enum class AppScreen {
     HOME,
@@ -32,7 +32,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            RootTailscaleTheme {
+            REtailscaledTheme {
                 val uiState by viewModel.uiState.collectAsState()
                 var currentScreen by rememberSaveable { mutableStateOf(AppScreen.HOME) }
 

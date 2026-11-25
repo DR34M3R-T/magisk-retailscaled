@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.roottailscale"
+    namespace = "io.github.dr34m3rt.retailscaled"
     compileSdk = 35
 
     defaultConfig {

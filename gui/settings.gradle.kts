@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "RootTailscaleGUI"
+rootProject.name = "REtailscaled"
 include(":app")

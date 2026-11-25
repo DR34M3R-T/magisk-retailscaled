@@ -3,7 +3,7 @@
 [![GitHub release](https://img.shields.io/github/v/release/DR34M3R-T/magisk-retailscaled?include_prereleases&color=blue)](https://github.com/DR34M3R-T/magisk-retailscaled/releases)
 [![Build & Release](https://github.com/DR34M3R-T/magisk-retailscaled/actions/workflows/release.yml/badge.svg)](https://github.com/DR34M3R-T/magisk-retailscaled/actions/workflows/release.yml)
 
-受 [anasfanani/magisk-tailscaled](https://github.com/anasfanani/magisk-tailscaled) 启发重构的 Android Root 版 Tailscale 控制套件：通过 GitHub Actions 直接跟踪编译官方 [tailscale/tailscale](https://github.com/tailscale/tailscale) 最新稳定版，并内置轻量无广告的 **RootTailscaleGUI** 控制端（Jetpack Compose + Material 3 + 系统快捷设置磁贴）。
+受 [anasfanani/magisk-tailscaled](https://github.com/anasfanani/magisk-tailscaled) 启发重构的 Android Root 版 Tailscale 控制套件：通过 GitHub Actions 直接跟踪编译官方 [tailscale/tailscale](https://github.com/tailscale/tailscale) 最新稳定版，并内置轻量无广告的 **REtailscaled** 控制端（Jetpack Compose + Material 3 + 系统快捷设置磁贴）。
 
 > **Vibe Coding 说明**：本项目为一个 Vibe Coding 实践项目，由 **Antigravity + Gemini 4 Neon** 协作完成开发与真机调试。
 
@@ -23,10 +23,10 @@
 ## 快速安装
 
 1. 前往 [Releases](https://github.com/DR34M3R-T/magisk-retailscaled/releases) 下载 `Magisk-REtailscaled-vX.X.X.X-full.zip`。
-2. 在 Magisk / KernelSU / APatch 中刷入模块并重启手机（刷入时会自动安装 **RootTailscale** 应用）。
+2. 在 Magisk / KernelSU / APatch 中刷入模块并重启手机（刷入时会自动安装 **REtailscaled** 应用）。
    > 若此前安装过旧版 `magisk-tailscaled`，请先卸载旧模块并重启一次，再刷入本模块。
-3. 打开 **RootTailscale** 应用并授予 Root 权限，按引导完成登录即可使用。
-4. 可在系统下拉控制中心编辑面板中添加 **Tailscale** 快捷磁贴，一键启停。
+3. 打开 **REtailscaled** 应用（无需授予 Root 权限），按引导完成登录即可使用。
+4. 可在系统下拉控制中心编辑面板中添加 **REtailscaled** 快捷磁贴，一键启停。
 
 ## 配合 FlClash / Mihomo 客户端共存分流（示例扩展脚本）
 
@@ -72,7 +72,7 @@ function main(config) {
 - `bump`：选择模块版本号递增类型（默认 `patch`）。
 - `tailscale_version`：保持 `latest` 自动拉取官方最新稳定版，或手动填写指定版本号（如 `1.104.7`）。
 
-云端会自动编译最新 Android `arm64`/`arm` 二进制与 `RootTailscaleGUI.apk`，并发布完整的 Magisk 模块 zip 到 Releases。
+云端会自动编译最新 Android `arm64`/`arm` 二进制与 `REtailscaled.apk`，并发布完整的 Magisk 模块 zip 到 Releases。
 
 ## 上游开源致谢
 
