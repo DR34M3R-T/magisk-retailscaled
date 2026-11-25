@@ -1,3 +1,7 @@
+## v1.1.0.0
+
+- 7f80df1 docs: add AGENTS.md contributor and AI agent guide
+
 # Changelog
 
 ## v1.0.0.0
