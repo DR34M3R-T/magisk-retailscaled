@@ -5,6 +5,20 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+val moduleProps = java.util.Properties().apply {
+    val propFile = rootProject.file("../module.prop")
+    if (propFile.isFile) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+val resolvedVersionCode = moduleProps.getProperty("versionCode")?.trim()?.toIntOrNull() ?: 1
+val resolvedVersionName = moduleProps.getProperty("version")
+    ?.trim()
+    ?.removePrefix("v")
+    ?.substringBefore("-")
+    ?.ifBlank { null }
+    ?: "1.0.0"
+
 android {
     namespace = "io.github.dr34m3rt.retailscaled"
     compileSdk = 35
@@ -13,8 +27,8 @@ android {
         applicationId = "io.github.dr34m3rt.retailscaled"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = resolvedVersionCode
+        versionName = resolvedVersionName
 
         vectorDrawables {
             useSupportLibrary = true
