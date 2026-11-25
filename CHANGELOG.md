@@ -1,7 +1,3 @@
-## v1.2.0.0
-
-- d3cd98c fix(login,docs): surface browser login errors, clean legacy paths and unify package name
-
 ## v1.1.0.0
 
 - 7f80df1 docs: add AGENTS.md contributor and AI agent guide
