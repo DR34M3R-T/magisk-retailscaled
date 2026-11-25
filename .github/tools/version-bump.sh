@@ -8,7 +8,7 @@ if [[ ! "$BUMP_TYPE" =~ ^(major|minor|patch|build)$ ]]; then
   exit 1
 fi
 
-CURRENT=$(grep '^version=' module.prop | cut -d'=' -f2 | tr -d 'v')
+CURRENT=$(grep '^version=' module.prop | cut -d'=' -f2 | sed 's/^v//; s/-.*//')
 IFS='.' read -r MAJOR MINOR PATCH BUILD <<< "$CURRENT"
 
 case $BUMP_TYPE in
