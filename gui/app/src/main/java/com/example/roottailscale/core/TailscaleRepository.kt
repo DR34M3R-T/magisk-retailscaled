@@ -1,5 +1,6 @@
 package com.example.roottailscale.core
 
+import android.os.Build
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 
@@ -75,6 +76,17 @@ class TailscaleRepository(
         }
     }
 
+    private fun defaultDeviceHostname(): String {
+        val brand = Build.BRAND.orEmpty().trim().lowercase()
+        val model = Build.MODEL.orEmpty().trim().lowercase()
+        val raw = when {
+            model.isBlank() && brand.isBlank() -> "android-device"
+            brand.isBlank() || model.startsWith(brand) -> model
+            else -> "$brand-$model"
+        }
+        return raw.replace(Regex("[^a-z0-9-]+"), "-").trim('-').ifBlank { "android-device" }
+    }
+
     suspend fun turnOn(): ShellResult {
         val settings = currentSettings()
         if (settings.powerSaveMode == PowerSaveMode.DEEP) {
@@ -87,7 +99,7 @@ class TailscaleRepository(
             }
         }
 
-        val args = mutableListOf("up")
+        val args = mutableListOf("up", "--hostname=${RootShell.shellQuote(defaultDeviceHostname())}")
         if (settings.acceptDnsFalse) {
             args += "--accept-dns=false"
         }
@@ -194,7 +206,7 @@ class TailscaleRepository(
         val settings = currentSettings()
         var foundUrl = false
         return RootShell.execStreaming(
-            command = tailscaleCmd(settings, "login"),
+            command = tailscaleCmd(settings, "login", "--hostname=${RootShell.shellQuote(defaultDeviceHostname())}"),
             timeoutMs = 15_000L
         ) { line ->
             if (!foundUrl) {
@@ -211,6 +223,7 @@ class TailscaleRepository(
         val settings = currentSettings()
         val args = mutableListOf(
             "up",
+            "--hostname=${RootShell.shellQuote(defaultDeviceHostname())}",
             "--authkey=${RootShell.shellQuote(authKey.trim())}"
         )
         if (loginServer.isNotBlank()) {

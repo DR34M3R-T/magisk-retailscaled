@@ -102,18 +102,42 @@ mkdir -p "$TS_DIR" "$TS_DIR/run" "$TS_SCRIPTS_DIR" "$MODPATH/system/bin/"
 unzip -qqjo "$ZIPFILE" 'tailscale/scripts/*' -d "$TS_SCRIPTS_DIR"
 unzip -qqjo "$ZIPFILE" 'tailscale/settings.sh' -d "$TS_DIR"
 
-# Multi-call CLI entrypoint (.cli/tailscale -> tailscaled) + wrapper that defaults --socket for Android
+# Multi-call CLI entrypoint (.cli/tailscale -> tailscaled) + wrapper that defaults --socket and Android --hostname
 ln -sf "$TS_BIN_DIR/tailscaled" "$TS_BIN_DIR/.cli/tailscale"
 cat <<'EOF' > "$TS_BIN_DIR/tailscale"
 #!/system/bin/sh
+HAS_SOCKET=0
+HAS_HOSTNAME=0
+SUBCMD=""
 for arg in "$@"; do
   case "$arg" in
-    --socket|--socket=*|-socket|-socket=*)
-      exec /data/adb/tailscale/bin/.cli/tailscale "$@"
-      ;;
+    --socket|--socket=*|-socket|-socket=*) HAS_SOCKET=1 ;;
+    --hostname|--hostname=*|-hostname|-hostname=*) HAS_HOSTNAME=1 ;;
+    up|login) [ -z "$SUBCMD" ] && SUBCMD="$arg" ;;
   esac
 done
-exec /data/adb/tailscale/bin/.cli/tailscale --socket=/data/adb/tailscale/tailscaled.sock "$@"
+
+get_android_hostname() {
+  BRAND=$(getprop ro.product.brand 2>/dev/null | tr '[:upper:]' '[:lower:]')
+  MODEL=$(getprop ro.product.model 2>/dev/null | tr '[:upper:]' '[:lower:]')
+  case "$MODEL" in
+    "$BRAND"*) RAW="$MODEL" ;;
+    *) RAW="${BRAND}-${MODEL}" ;;
+  esac
+  CLEAN=$(echo "$RAW" | sed 's/[^a-z0-9-]/-/g; s/--*/-/g; s/^-//; s/-$//')
+  [ -n "$CLEAN" ] && echo "$CLEAN" || echo "android-device"
+}
+
+if [ "$HAS_SOCKET" -eq 0 ]; then
+  set -- --socket=/data/adb/tailscale/tailscaled.sock "$@"
+fi
+
+if [ -n "$SUBCMD" ] && [ "$HAS_HOSTNAME" -eq 0 ]; then
+  DEV_HOST=$(get_android_hostname)
+  exec /data/adb/tailscale/bin/.cli/tailscale "$@" --hostname="$DEV_HOST"
+fi
+
+exec /data/adb/tailscale/bin/.cli/tailscale "$@"
 EOF
 
 ln -sf "$TS_BIN_DIR/tailscale" "$MODPATH/system/bin/tailscale"
