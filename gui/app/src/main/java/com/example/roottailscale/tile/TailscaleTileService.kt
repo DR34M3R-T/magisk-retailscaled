@@ -25,7 +25,7 @@ class TailscaleTileService : TileService() {
 
     override fun onCreate() {
         super.onCreate()
-        repository = TailscaleRepository(SettingsStore(applicationContext))
+        repository = TailscaleRepository(applicationContext, SettingsStore(applicationContext))
     }
 
     override fun onStartListening() {

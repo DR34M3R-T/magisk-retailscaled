@@ -62,8 +62,8 @@ fun WebUiScreen(
         webProcess = proc
         targetUrl = url
 
-        if (proc == null) {
-            errorMessage = "无法以 Root 权限启动 tailscale web"
+        if (url == null) {
+            errorMessage = "无法启动 tailscale web，请确认模块服务运行正常或已授予 Root 权限"
             return@LaunchedEffect
         }
 

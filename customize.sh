@@ -96,7 +96,7 @@ done
 }
 
 ui_print "- Extracting files..."
-unzip -qqo "$ZIPFILE" -x 'META-INF/*' 'tailscale/*' 'gui/*' -d "$MODPATH"
+unzip -qqo "$ZIPFILE" -x 'META-INF/*' 'tailscale/*' 'gui/*' 'bridge/*' -d "$MODPATH"
 
 mkdir -p "$TS_DIR" "$TS_DIR/run" "$TS_SCRIPTS_DIR" "$MODPATH/system/bin/"
 unzip -qqjo "$ZIPFILE" 'tailscale/scripts/*' -d "$TS_SCRIPTS_DIR"

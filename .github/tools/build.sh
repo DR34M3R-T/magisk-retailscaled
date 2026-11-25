@@ -46,11 +46,11 @@ fi
 echo ""
 echo "Creating lightweight zip (downloads tailscaled on install, includes GUI APK if built)..."
 zip -9 -r "${DIST_DIR}/Magisk-REtailscaled-${VERSION}.zip" . \
-  -x "*.git*" "dist/*" "gui/*" "*.zip" "*.json" "*.md" "${BIN_DIR}/*" ".shellcheckrc" >/dev/null
+  -x "*.git*" "dist/*" "gui/*" "bridge/*" "*.zip" "*.json" "*.md" "${BIN_DIR}/*" ".shellcheckrc" >/dev/null
 
-echo "Creating full zip (includes tailscaled + jq + RootTailscaleGUI APK)..."
+echo "Creating full zip (includes tailscaled + bridge + jq + RootTailscaleGUI APK)..."
 zip -9 -r "${DIST_DIR}/Magisk-REtailscaled-${VERSION}-full.zip" . \
-  -x "*.git*" "dist/*" "gui/*" "*.zip" "*.json" "*.md" ".shellcheckrc" >/dev/null
+  -x "*.git*" "dist/*" "gui/*" "bridge/*" "*.zip" "*.json" "*.md" ".shellcheckrc" >/dev/null
 
 rm -rf "$BIN_DIR"/* "$APK_DIR"/*
 

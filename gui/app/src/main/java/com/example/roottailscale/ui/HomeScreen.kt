@@ -134,7 +134,11 @@ fun HomeScreen(
                     Column {
                         Text("RootTailscale", fontWeight = FontWeight.SemiBold)
                         Text(
-                            text = "Userspace 模式 · 无 VPN 冲突",
+                            text = if (uiState.isUsingBridge) {
+                                "模块本地直连（免 Root）· 无 VPN 冲突"
+                            } else {
+                                "Userspace 模式 · 无 VPN 冲突"
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,

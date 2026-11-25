@@ -1,12 +1,20 @@
 package com.example.roottailscale.core
 
+import android.content.Context
 import android.os.Build
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 
 class TailscaleRepository(
+    context: Context,
     private val settingsStore: SettingsStore
 ) {
+    private val bridgeClient = BridgeClient(context)
+
+    @Volatile
+    var isUsingBridge: Boolean = false
+        private set
+
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
@@ -30,9 +38,23 @@ class TailscaleRepository(
         return parts.joinToString(" ")
     }
 
-    suspend fun checkRoot(): Boolean = RootShell.checkRoot()
+    private fun defaultDeviceHostname(): String {
+        val brand = Build.BRAND.orEmpty().trim().lowercase()
+        val model = Build.MODEL.orEmpty().trim().lowercase()
+        val raw = when {
+            model.isBlank() && brand.isBlank() -> "android-device"
+            brand.isBlank() || model.startsWith(brand) -> model
+            else -> "$brand-$model"
+        }
+        return raw.replace(Regex("[^a-z0-9-]+"), "-").trim('-').ifBlank { "android-device" }
+    }
 
     suspend fun readModuleVersion(): String? {
+        val health = bridgeClient.health()
+        if (health != null) {
+            isUsingBridge = true
+            return health.moduleVersion.takeIf { it.isNotBlank() }
+        }
         val res = RootShell.exec(
             command = "grep '^version=' /data/adb/modules/magisk-retailscaled/module.prop /data/adb/modules/magisk-tailscaled/module.prop 2>/dev/null | head -n 1 | cut -d'=' -f2",
             timeoutMs = 3_000L
@@ -41,6 +63,30 @@ class TailscaleRepository(
     }
 
     suspend fun fetchStatus(): TailscaleLoadState {
+        // Priority 1: Zero-Root local HTTP bridge (from Magisk REtailscaled)
+        val health = bridgeClient.health()
+        if (health != null) {
+            isUsingBridge = true
+            val raw = bridgeClient.fetchStatusRaw()
+            if (raw != null) {
+                val (code, body) = raw
+                val trimmed = body.trim()
+                if (code == 200 && trimmed.startsWith("{")) {
+                    return try {
+                        TailscaleLoadState.Ready(json.decodeFromString<TailscaleStatus>(trimmed))
+                    } catch (e: Exception) {
+                        TailscaleLoadState.Error("解析 status JSON 失败: ${e.message}")
+                    }
+                }
+                if (code == 503 || body.contains("daemonStopped", ignoreCase = true)) {
+                    return TailscaleLoadState.DaemonStopped("tailscaled 守护进程未运行")
+                }
+                return TailscaleLoadState.Error(body.ifBlank { "Bridge 状态请求失败 (HTTP $code)" })
+            }
+        }
+
+        // Priority 2: Fallback to su -c RootShell
+        isUsingBridge = false
         if (!RootShell.checkRoot()) {
             return TailscaleLoadState.NoRoot
         }
@@ -76,30 +122,30 @@ class TailscaleRepository(
         }
     }
 
-    private fun defaultDeviceHostname(): String {
-        val brand = Build.BRAND.orEmpty().trim().lowercase()
-        val model = Build.MODEL.orEmpty().trim().lowercase()
-        val raw = when {
-            model.isBlank() && brand.isBlank() -> "android-device"
-            brand.isBlank() || model.startsWith(brand) -> model
-            else -> "$brand-$model"
-        }
-        return raw.replace(Regex("[^a-z0-9-]+"), "-").trim('-').ifBlank { "android-device" }
-    }
-
     suspend fun turnOn(): ShellResult {
         val settings = currentSettings()
+        val hostname = defaultDeviceHostname()
+
+        if (bridgeClient.health() != null) {
+            isUsingBridge = true
+            bridgeClient.turnOn(
+                acceptDnsFalse = settings.acceptDnsFalse,
+                hostname = hostname,
+                socks5Address = settings.socks5Address
+            )?.let { return it }
+        }
+
+        isUsingBridge = false
         if (settings.powerSaveMode == PowerSaveMode.DEEP) {
             ensureDaemonRunning(settings)
         } else {
-            // Even in light mode, if daemon isn't running yet, try starting it seamlessly
             val runningCheck = RootShell.exec("pidof tailscaled || pgrep -f tailscaled", timeoutMs = 3_000L)
             if (!runningCheck.isSuccess || runningCheck.stdout.isBlank()) {
                 ensureDaemonRunning(settings)
             }
         }
 
-        val args = mutableListOf("up", "--hostname=${RootShell.shellQuote(defaultDeviceHostname())}")
+        val args = mutableListOf("up", "--hostname=${RootShell.shellQuote(hostname)}")
         if (settings.acceptDnsFalse) {
             args += "--accept-dns=false"
         }
@@ -111,6 +157,15 @@ class TailscaleRepository(
 
     suspend fun turnOff(): ShellResult {
         val settings = currentSettings()
+
+        if (bridgeClient.health() != null) {
+            isUsingBridge = true
+            bridgeClient.turnOff(
+                deepPowerSave = settings.powerSaveMode == PowerSaveMode.DEEP
+            )?.let { return it }
+        }
+
+        isUsingBridge = false
         val downResult = RootShell.exec(
             command = tailscaleCmd(settings, "down"),
             timeoutMs = 15_000L
@@ -191,7 +246,6 @@ class TailscaleRepository(
 
         RootShell.exec(startCmd, timeoutMs = 5_000L)
 
-        // Wait up to 4 seconds for tailscaled to become responsive
         repeat(8) {
             delay(500L)
             val probe = RootShell.exec(
@@ -203,12 +257,9 @@ class TailscaleRepository(
     }
 
     suspend fun startBrowserLogin(onAuthUrlFound: suspend (String) -> Unit): ShellResult {
-        val settings = currentSettings()
+        val hostname = defaultDeviceHostname()
         var foundUrl = false
-        return RootShell.execStreaming(
-            command = tailscaleCmd(settings, "login", "--hostname=${RootShell.shellQuote(defaultDeviceHostname())}"),
-            timeoutMs = 15_000L
-        ) { line ->
+        val lineHandler: suspend (String) -> Unit = { line ->
             if (!foundUrl) {
                 val match = urlRegex.find(line)
                 if (match != null) {
@@ -217,13 +268,39 @@ class TailscaleRepository(
                 }
             }
         }
+
+        if (bridgeClient.health() != null) {
+            isUsingBridge = true
+            bridgeClient.streamBrowserLogin(hostname, lineHandler)?.let { return it }
+        }
+
+        isUsingBridge = false
+        val settings = currentSettings()
+        return RootShell.execStreaming(
+            command = tailscaleCmd(settings, "login", "--hostname=${RootShell.shellQuote(hostname)}"),
+            timeoutMs = 15_000L,
+            onLine = lineHandler
+        )
     }
 
     suspend fun loginWithAuthKey(authKey: String, loginServer: String): ShellResult {
         val settings = currentSettings()
+        val hostname = defaultDeviceHostname()
+
+        if (bridgeClient.health() != null) {
+            isUsingBridge = true
+            bridgeClient.loginWithAuthKey(
+                authKey = authKey,
+                loginServer = loginServer,
+                acceptDnsFalse = settings.acceptDnsFalse,
+                hostname = hostname
+            )?.let { return it }
+        }
+
+        isUsingBridge = false
         val args = mutableListOf(
             "up",
-            "--hostname=${RootShell.shellQuote(defaultDeviceHostname())}",
+            "--hostname=${RootShell.shellQuote(hostname)}",
             "--authkey=${RootShell.shellQuote(authKey.trim())}"
         )
         if (loginServer.isNotBlank()) {
@@ -243,6 +320,14 @@ class TailscaleRepository(
         count: Int = 3,
         onEntry: suspend (PingEntry) -> Unit
     ): ShellResult {
+        if (bridgeClient.health() != null) {
+            isUsingBridge = true
+            bridgeClient.streamPing(ip, count) { line ->
+                if (line.isNotBlank()) onEntry(parsePingLine(line))
+            }?.let { return it }
+        }
+
+        isUsingBridge = false
         val settings = currentSettings()
         return RootShell.execStreaming(
             command = tailscaleCmd(settings, "ping", "-c", count.toString(), RootShell.shellQuote(ip)),
@@ -277,6 +362,12 @@ class TailscaleRepository(
     }
 
     suspend fun setExitNode(exitNodeIpOrEmpty: String): ShellResult {
+        if (bridgeClient.health() != null) {
+            isUsingBridge = true
+            bridgeClient.setExitNode(exitNodeIpOrEmpty)?.let { return it }
+        }
+
+        isUsingBridge = false
         val settings = currentSettings()
         val arg = "--exit-node=${RootShell.shellQuote(exitNodeIpOrEmpty.trim())}"
         return RootShell.exec(
@@ -285,15 +376,25 @@ class TailscaleRepository(
         )
     }
 
-    fun startWebUi(): Pair<Process?, String> {
+    suspend fun startWebUi(): Pair<Process?, String?> {
         val settings = currentSettings()
+        if (bridgeClient.health() != null) {
+            isUsingBridge = true
+            val url = bridgeClient.startWebUi(settings.webUiPort)
+            if (url != null) return null to url
+        }
+
+        isUsingBridge = false
         val listenAddr = "127.0.0.1:${settings.webUiPort}"
         val cmd = tailscaleCmd(settings, "web", "--listen", listenAddr)
         val process = RootShell.startBackground(cmd)
-        return process to "http://$listenAddr"
+        return process to if (process != null) "http://$listenAddr" else null
     }
 
     suspend fun stopWebUi(process: Process?) {
+        if (isUsingBridge && bridgeClient.stopWebUi()) {
+            return
+        }
         runCatching { process?.destroyForcibly() }
         val settings = currentSettings()
         val listenAddr = "127.0.0.1:${settings.webUiPort}"

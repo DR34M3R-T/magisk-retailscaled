@@ -47,11 +47,29 @@ for ARCH in arm64 arm; do
     upx --best --lzma "$OUT_FILE" || true
   fi
 
+  # Also cross-compile local HTTP control bridge (zero-Root GUI communication)
+  BRIDGE_OUT="${OLDPWD}/${BIN_DIR}/tailscaled-bridge-${ARCH}"
+  if [ -d "${OLDPWD}/bridge" ]; then
+    echo "- Cross-compiling tailscaled-bridge for linux/${ARCH}..."
+    (
+      cd "${OLDPWD}/bridge"
+      if [ "$ARCH" = "arm" ]; then
+        CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags="-s -w" -o "$BRIDGE_OUT" .
+      else
+        CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o "$BRIDGE_OUT" .
+      fi
+    )
+    if command -v upx >/dev/null 2>&1; then
+      upx --best --lzma "$BRIDGE_OUT" || true
+    fi
+  fi
+
   # Also package standalone tgz for lightweight module installs
   STAGE_DIR="$WORK_DIR/stage-${ARCH}"
   mkdir -p "$STAGE_DIR"
   cp "$OUT_FILE" "$STAGE_DIR/tailscaled"
-  tar -czf "${OLDPWD}/${DIST_DIR}/tailscale_${TS_VER}_${ARCH}.tgz" -C "$STAGE_DIR" tailscaled
+  [ -f "$BRIDGE_OUT" ] && cp "$BRIDGE_OUT" "$STAGE_DIR/tailscaled-bridge"
+  tar -czf "${OLDPWD}/${DIST_DIR}/tailscale_${TS_VER}_${ARCH}.tgz" -C "$STAGE_DIR" .
   ls -lh "$OUT_FILE" "${OLDPWD}/${DIST_DIR}/tailscale_${TS_VER}_${ARCH}.tgz"
 done
 

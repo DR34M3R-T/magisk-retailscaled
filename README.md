@@ -9,8 +9,9 @@
 
 - **不占用 Android VPN 通道**：底层以 Root 权限运行 `userspace-networking + 本地 SOCKS5 (127.0.0.1:1055)`，可与 **FlClash** 等代理客户端完美共存。
 - **紧跟官方最新 Tailscale**：仓库不提交任何二进制文件；GitHub Actions 直接从 [tailscale/tailscale](https://github.com/tailscale/tailscale) 拉取最新稳定版源码交叉编译为 Android 单文件合并二进制（`ts_include_cli` + 服务端特性裁剪 + UPX 压缩）。
-- **内置 RootTailscaleGUI 控制端（`gui/`）**：
+- **内置 RootTailscaleGUI 控制端（`gui/` + 免 Root 本地控制桥 `bridge/`）**：
   - 刷入模块时自动通过 `pm install -r` 安装为普通用户应用（支持后续独立升级与卸载）。
+  - 模块内置极简本地控制桥（`tailscaled-bridge`，空闲 0% CPU，仅监听 `127.0.0.1:41688` + 随机 Token 鉴权并仅对本 App UID 可读），**App 默认无需申请 Magisk Root 授权即可完成全部控制与极致省电启停**（脱离模块单独安装 APK 时自动回退到 `su -c`）。
   - 顶部状态卡片（总开关、本机 IP / SOCKS5 一键复制、Tailscale 内核与模块版本展示）。
   - 支持浏览器 OAuth 登录与 Auth Key / Headscale 自定义控制服务器登录。
   - 在线置顶设备列表、OS 图标、连接类型（`Direct` / `DERP`）、单设备实时 Ping 测速弹窗。
