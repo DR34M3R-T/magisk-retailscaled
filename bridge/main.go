@@ -346,7 +346,7 @@ func (s *bridgeServer) handleBrowserLogin(w http.ResponseWriter, r *http.Request
 		args = append(args, "--accept-dns=false")
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, s.cfg.tailscaleBin, args...)
@@ -363,9 +363,8 @@ func (s *bridgeServer) handleBrowserLogin(w http.ResponseWriter, r *http.Request
 	}
 
 	var (
-		lines      []string
-		foundURL   bool
-		headerSent bool
+		lines    []string
+		foundURL bool
 	)
 	flusher, _ := w.(http.Flusher)
 
@@ -373,23 +372,20 @@ func (s *bridgeServer) handleBrowserLogin(w http.ResponseWriter, r *http.Request
 	for scanner.Scan() {
 		line := scanner.Text()
 		lines = append(lines, line)
-		if !foundURL && (strings.Contains(line, "https://") || strings.Contains(line, "http://")) {
+		if strings.Contains(line, "https://") || strings.Contains(line, "http://") {
 			foundURL = true
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.Header().Set("Cache-Control", "no-cache")
 			w.WriteHeader(http.StatusOK)
-			headerSent = true
 			for _, buffered := range lines {
 				_, _ = fmt.Fprintln(w, buffered)
 			}
 			if flusher != nil {
 				flusher.Flush()
 			}
-		} else if headerSent {
-			_, _ = fmt.Fprintln(w, line)
-			if flusher != nil {
-				flusher.Flush()
-			}
+			// AuthURL is already registered in tailscaled; stop the blocking CLI immediately
+			cancel()
+			break
 		}
 	}
 	_ = cmd.Wait()
