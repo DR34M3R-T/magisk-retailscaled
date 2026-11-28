@@ -1,7 +1,7 @@
 id=magisk-retailscaled
 name=Magisk REtailscaled
-version=v1.3.0.0-ts1.104.7
-versionCode=01030000
+version=v1.3.1.0-ts1.104.7
+versionCode=01030100
 author=DR34M3R-T
 description=Userspace Tailscale (SOCKS5) for rooted Android with bundled Material 3 REtailscaled app (zero-Root bridge) & Quick Settings Tile. Coexists with FlClash/VPNs.
 updateJson=https://raw.githubusercontent.com/DR34M3R-T/magisk-retailscaled/main/update.json

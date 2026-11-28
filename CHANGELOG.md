@@ -1,3 +1,8 @@
+## v1.3.1.0
+
+### Features
+- feat: bypass Android VPN (tun0) for tailscaled outbound via SO_MARK=0x20000 (`966c707`)
+
 ## v1.3.0.0
 
 ### Features

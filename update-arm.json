@@ -1,6 +1,6 @@
 {
-  "version": "v1.3.0.0-ts1.104.7",
-  "versionCode": "01030000",
-  "zipUrl": "https://github.com/DR34M3R-T/magisk-retailscaled/releases/download/v1.3.0.0-ts1.104.7/Magisk-REtailscaled-v1.3.0.0-ts1.104.7-full.zip",
+  "version": "v1.3.1.0-ts1.104.7",
+  "versionCode": "01030100",
+  "zipUrl": "https://github.com/DR34M3R-T/magisk-retailscaled/releases/download/v1.3.1.0-ts1.104.7/Magisk-REtailscaled-v1.3.1.0-ts1.104.7-full.zip",
   "changelog": "https://raw.githubusercontent.com/DR34M3R-T/magisk-retailscaled/main/CHANGELOG.md"
 }
