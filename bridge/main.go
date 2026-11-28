@@ -124,51 +124,58 @@ func loadOrCreateToken(path string) (string, error) {
 }
 
 func syncTokenLoop(pkg string, port int, token string) {
-	if tryWriteAppToken(pkg, port, token) {
-		return
-	}
-	ticker := time.NewTicker(10 * time.Second)
+	ensureAppToken(pkg, port, token)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
-	for i := 0; i < 60; i++ {
-		<-ticker.C
-		if tryWriteAppToken(pkg, port, token) {
-			return
-		}
+	for range ticker.C {
+		ensureAppToken(pkg, port, token)
 	}
 }
 
-func tryWriteAppToken(pkg string, port int, token string) bool {
+func ensureAppToken(pkg string, port int, token string) {
 	baseDir := filepath.Join("/data/user/0", pkg)
 	info, err := os.Stat(baseDir)
 	if err != nil {
-		return false
+		return
 	}
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
-		return false
+		return
 	}
 	uid := int(stat.Uid)
 	gid := int(stat.Gid)
 
+	payload, err := json.Marshal(authFilePayload{Port: port, Token: token})
+	if err != nil {
+		return
+	}
+
+	target := filepath.Join(baseDir, "files", "bridge_auth.json")
+	if tInfo, err := os.Stat(target); err == nil {
+		if tStat, ok := tInfo.Sys().(*syscall.Stat_t); ok &&
+			int(tStat.Uid) == uid &&
+			int(tStat.Gid) == gid &&
+			tInfo.Mode().Perm() == 0600 {
+			if existing, err := os.ReadFile(target); err == nil && subtle.ConstantTimeCompare(existing, payload) == 1 {
+				return
+			}
+		}
+	}
+
 	filesDir := filepath.Join(baseDir, "files")
 	if err := os.MkdirAll(filesDir, 0700); err != nil {
-		return false
+		return
 	}
 	_ = os.Chown(filesDir, uid, gid)
 
-	payload, err := json.Marshal(authFilePayload{Port: port, Token: token})
-	if err != nil {
-		return false
-	}
-	target := filepath.Join(filesDir, "bridge_auth.json")
 	if err := os.WriteFile(target, payload, 0600); err != nil {
-		return false
+		return
 	}
 	_ = os.Chown(target, uid, gid)
 	_ = os.Chmod(target, 0600)
 	// Restore SELinux context so app can read its own private file on strict ROMs
 	_ = exec.Command("restorecon", target).Run()
-	return true
+	log.Printf("synced bridge_auth.json for %s (uid=%d)", pkg, uid)
 }
 
 func (s *bridgeServer) withAuth(next http.HandlerFunc) http.HandlerFunc {
