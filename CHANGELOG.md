@@ -1,3 +1,11 @@
+## v1.3.1.1
+
+### Bug Fixes
+- fix(bridge): continuously resync bridge_auth.json after app reinstall or data clear (`1393351`)
+
+### Build & Maintenance
+- build: support persistent release APK signing via GitHub Secrets (`bec6ac9`)
+
 ## v1.3.1.0
 
 ### Features
