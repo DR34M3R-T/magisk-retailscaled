@@ -62,7 +62,9 @@ class MainActivity : ComponentActivity() {
                             uiState = uiState,
                             onSaveSettings = { viewModel.updateSettings(it) },
                             onSelectExitNode = { viewModel.setExitNode(it) },
+                            onToggleVpnBypass = { viewModel.setVpnBypass(it) },
                             onOpenWebUi = { currentScreen = AppScreen.WEB_UI },
+                            onSnackbarConsumed = { viewModel.clearSnackbar() },
                             onBack = { currentScreen = AppScreen.HOME }
                         )
                     }

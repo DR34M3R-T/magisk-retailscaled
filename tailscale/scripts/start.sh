@@ -14,6 +14,7 @@ start_bridge() {
       --tailscale="${TS_DIR}/bin/tailscale" \
       --service="${TS_DIR}/scripts/tailscaled.service" \
       --modprop="${TS_MOD_PROP}" \
+      --vpn-bypass-file="${TS_VPN_BYPASS_FILE}" \
       > "${TS_RUN_DIR}/bridge.log" 2>&1 &
   fi
 }

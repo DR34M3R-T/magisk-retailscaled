@@ -9,7 +9,7 @@
 
 ## 核心特性
 
-- **不占用 Android VPN 通道**：底层以 Root 权限运行 `userspace-networking + 本地 SOCKS5 (127.0.0.1:1055)`，可与 [**FlClash**](https://github.com/chen08209/FlClash) 等基于 [Mihomo](https://github.com/MetaCubeX/mihomo) 的代理客户端完美共存。
+- **不占用 Android VPN 通道，且原生绕过 `tun0`**：底层以 Root 权限运行 `userspace-networking + 本地 SOCKS5 (127.0.0.1:1055)`，并默认为 `tailscaled` 出站 socket 设置 Android 原生保护标记（`SO_MARK = 0x20000` / `FWMARK_PROTECTED_FROM_VPN`），使其 WireGuard UDP / STUN / DERP / Control Plane 直走物理网卡（Wi-Fi / 4G / 5G），无论 [**FlClash**](https://github.com/chen08209/FlClash) 等 [Mihomo](https://github.com/MetaCubeX/mihomo) 客户端是否开启、如何切换节点或开关 IPv6，均能稳定保持 IPv4/IPv6 直连（可在 App「进阶设置」中随时开关）。
 - **紧跟官方最新 Tailscale**：仓库不提交任何二进制文件；GitHub Actions 直接从 [tailscale/tailscale](https://github.com/tailscale/tailscale) 拉取最新稳定版源码交叉编译为 Android 单文件合并二进制（`ts_include_cli` + 服务端特性裁剪 + UPX 压缩）。
 - **内置 REtailscaled 控制端（`gui/` + 免 Root 本地控制桥 `bridge/`）**：
   - 刷入模块时自动通过 `pm install -r` 安装为普通用户应用（包名 `io.github.dr34m3rt.retailscaled`，支持后续独立升级与卸载）。
@@ -30,11 +30,11 @@
 
 ## 配合 FlClash / Mihomo 客户端共存分流（示例扩展脚本）
 
-模块默认在 `127.0.0.1:1055` 暴露本地 SOCKS5 代理。在 [**FlClash**](https://github.com/chen08209/FlClash)（或其它基于 [Mihomo](https://github.com/MetaCubeX/mihomo) 内核的代理客户端）中启用「扩展脚本 / Override Script」，粘贴以下脚本即可在不冲突的前提下将所有 Tailnet 流量转发给本模块，并在**规则模式**中看到独立的 `🔗 Tailscale` 策略组：
+模块默认在 `127.0.0.1:1055` 暴露本地 SOCKS5 代理，并在内核层通过 `SO_MARK = 0x20000` 自动让 `tailscaled` 自身外联绕过 Android VPN（`tun0`）直走物理网卡。在 [**FlClash**](https://github.com/chen08209/FlClash)（或其它基于 [Mihomo](https://github.com/MetaCubeX/mihomo) 内核的代理客户端）中启用「扩展脚本 / Override Script」，粘贴以下脚本即可在不冲突的前提下将所有 Tailnet 内网流量转发给本模块，并在**规则模式**中看到独立的 `🔗 Tailscale` 策略组（无需为 `tailscaled` 额外配置直连规则，也不受 FlClash 节点选择与 IPv6 开关影响）：
 
 ```js
 function main(config) {
-  // 1. 添加本地 Root Tailscale SOCKS5 出站节点
+  // 1. 添加本地 Root Tailscale SOCKS5 出站节点（幂等去重）
   const tailscaleProxy = {
     name: "🔗 Tailscale SOCKS5",
     type: "socks5",
@@ -44,15 +44,19 @@ function main(config) {
   };
 
   if (!config.proxies) config.proxies = [];
-  config.proxies.push(tailscaleProxy);
+  if (!config.proxies.some(p => p && p.name === tailscaleProxy.name)) {
+    config.proxies.push(tailscaleProxy);
+  }
 
   // 2. 添加独立策略组（使节点在规则模式下可见、可随时切换直连）
   if (!config["proxy-groups"]) config["proxy-groups"] = [];
-  config["proxy-groups"].unshift({
-    name: "🔗 Tailscale",
-    type: "select",
-    proxies: ["🔗 Tailscale SOCKS5", "DIRECT"]
-  });
+  if (!config["proxy-groups"].some(g => g && g.name === "🔗 Tailscale")) {
+    config["proxy-groups"].unshift({
+      name: "🔗 Tailscale",
+      type: "select",
+      proxies: ["🔗 Tailscale SOCKS5", "DIRECT"]
+    });
+  }
 
   // 3. 将 Tailscale 网段与 MagicDNS 规则插入到最前面
   const tailscaleRules = [

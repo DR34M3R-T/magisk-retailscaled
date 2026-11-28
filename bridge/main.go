@@ -24,14 +24,15 @@ import (
 )
 
 type bridgeConfig struct {
-	listenAddr   string
-	port         int
-	socketPath   string
-	tailscaleBin string
-	serviceBin   string
-	modPropPath  string
-	appPkg       string
-	tokenPath    string
+	listenAddr    string
+	port          int
+	socketPath    string
+	tailscaleBin  string
+	serviceBin    string
+	modPropPath   string
+	vpnBypassFile string
+	appPkg        string
+	tokenPath     string
 }
 
 type authFilePayload struct {
@@ -55,6 +56,7 @@ func main() {
 	flag.StringVar(&cfg.tailscaleBin, "tailscale", "/data/adb/tailscale/bin/tailscale", "path to tailscale CLI")
 	flag.StringVar(&cfg.serviceBin, "service", "/data/adb/tailscale/scripts/tailscaled.service", "path to tailscaled.service")
 	flag.StringVar(&cfg.modPropPath, "modprop", "/data/adb/modules/magisk-retailscaled/module.prop", "path to module.prop")
+	flag.StringVar(&cfg.vpnBypassFile, "vpn-bypass-file", "/data/adb/tailscale/vpn_bypass", "path to Android VPN bypass toggle file")
 	flag.StringVar(&cfg.appPkg, "app", "io.github.dr34m3rt.retailscaled", "Android package name allowed to read token")
 	flag.StringVar(&cfg.tokenPath, "token-file", "/data/adb/tailscale/run/bridge.token", "internal token path")
 	flag.Parse()
@@ -94,6 +96,7 @@ func main() {
 	mux.HandleFunc("/api/login/authkey", srv.withAuth(srv.handleAuthKeyLogin))
 	mux.HandleFunc("/api/ping", srv.withAuth(srv.handlePing))
 	mux.HandleFunc("/api/exit-node", srv.withAuth(srv.handleExitNode))
+	mux.HandleFunc("/api/vpn-bypass", srv.withAuth(srv.handleVpnBypass))
 	mux.HandleFunc("/api/webui/start", srv.withAuth(srv.handleWebUiStart))
 	mux.HandleFunc("/api/webui/stop", srv.withAuth(srv.handleWebUiStop))
 
@@ -193,10 +196,118 @@ func (s *bridgeServer) readModuleVersion() string {
 	return ""
 }
 
+func (s *bridgeServer) readVpnBypass() bool {
+	data, err := os.ReadFile(s.cfg.vpnBypassFile)
+	if err != nil {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(string(data))) {
+	case "0", "false", "off", "no":
+		return false
+	default:
+		return true
+	}
+}
+
+func (s *bridgeServer) writeVpnBypass(enabled bool) error {
+	if err := os.MkdirAll(filepath.Dir(s.cfg.vpnBypassFile), 0755); err != nil {
+		return err
+	}
+	val := "1\n"
+	if !enabled {
+		val = "0\n"
+	}
+	return os.WriteFile(s.cfg.vpnBypassFile, []byte(val), 0644)
+}
+
+func (s *bridgeServer) serviceEnv(extra ...string) []string {
+	bypassVal := "1"
+	if !s.readVpnBypass() {
+		bypassVal = "0"
+	}
+	env := make([]string, 0, len(os.Environ())+len(extra)+1)
+	for _, kv := range os.Environ() {
+		if strings.HasPrefix(kv, "TS_BYPASS_VPN=") {
+			continue
+		}
+		env = append(env, kv)
+	}
+	env = append(env, "TS_BYPASS_VPN="+bypassVal)
+	env = append(env, extra...)
+	return env
+}
+
+func (s *bridgeServer) isDaemonRunning() bool {
+	conn, err := net.DialTimeout("unix", s.cfg.socketPath, 400*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
+
+func (s *bridgeServer) waitForDaemon(attempts int, interval time.Duration) bool {
+	for i := 0; i < attempts; i++ {
+		if s.isDaemonRunning() {
+			return true
+		}
+		time.Sleep(interval)
+	}
+	return false
+}
+
 func (s *bridgeServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ok":            true,
 		"moduleVersion": s.readModuleVersion(),
+		"vpnBypass":     s.readVpnBypass(),
+	})
+}
+
+func (s *bridgeServer) handleVpnBypass(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok":      true,
+			"enabled": s.readVpnBypass(),
+		})
+		return
+	}
+	var body struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "invalid JSON"})
+		return
+	}
+	if err := s.writeVpnBypass(body.Enabled); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+
+	restarted := false
+	outMsg := ""
+	if s.isDaemonRunning() {
+		cmd := exec.Command(s.cfg.serviceBin, "restart")
+		cmd.Env = s.serviceEnv()
+		out, err := cmd.CombinedOutput()
+		outMsg = strings.TrimSpace(string(out))
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{
+				"ok":        false,
+				"enabled":   body.Enabled,
+				"restarted": false,
+				"error":     strings.TrimSpace(outMsg + "\n" + err.Error()),
+			})
+			return
+		}
+		restarted = s.waitForDaemon(15, 400*time.Millisecond)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":        true,
+		"enabled":   body.Enabled,
+		"restarted": restarted,
+		"output":    outMsg,
 	})
 }
 
@@ -222,25 +333,15 @@ func (s *bridgeServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *bridgeServer) ensureDaemon(socks5 string) {
-	// Quick probe via unix socket
-	conn, err := net.DialTimeout("unix", s.cfg.socketPath, 500*time.Millisecond)
-	if err == nil {
-		_ = conn.Close()
+	if s.isDaemonRunning() {
 		return
 	}
 
 	cmd := exec.Command(s.cfg.serviceBin, "start")
-	cmd.Env = append(os.Environ(), "TS_SOCKS5_ADDR="+socks5)
+	cmd.Env = s.serviceEnv("TS_SOCKS5_ADDR=" + socks5)
 	_ = cmd.Run()
 
-	for i := 0; i < 12; i++ {
-		time.Sleep(400 * time.Millisecond)
-		c, e := net.DialTimeout("unix", s.cfg.socketPath, 300*time.Millisecond)
-		if e == nil {
-			_ = c.Close()
-			return
-		}
-	}
+	s.waitForDaemon(12, 400*time.Millisecond)
 }
 
 func (s *bridgeServer) handleUp(w http.ResponseWriter, r *http.Request) {

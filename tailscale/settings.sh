@@ -18,6 +18,16 @@ export HOME="/data/adb/tailscale/" # Because tailscaled will write log to $HOME
 export TS_SOCKS5_ADDR="${TS_SOCKS5_ADDR:-127.0.0.1:1055}"
 export TS_SOCKET_PATH="${TS_DIR}/tailscaled.sock"
 export TS_STATE_PATH="${TS_DIR}/tailscaled.state"
+export TS_VPN_BYPASS_FILE="${TS_DIR}/vpn_bypass"
+if [ -f "${TS_VPN_BYPASS_FILE}" ]; then
+  _vpn_bypass_val=$(tr -d ' \t\r\n' < "${TS_VPN_BYPASS_FILE}" 2>/dev/null || echo "1")
+  case "${_vpn_bypass_val}" in
+    0|false|FALSE|off|OFF|no|NO) export TS_BYPASS_VPN="0" ;;
+    *) export TS_BYPASS_VPN="1" ;;
+  esac
+else
+  export TS_BYPASS_VPN="${TS_BYPASS_VPN:-1}"
+fi
 export TS_DAEMON_CMD="tailscaled --tun=userspace-networking --socks5-server=${TS_SOCKS5_ADDR} --socket=${TS_SOCKET_PATH} --state=${TS_STATE_PATH} -no-logs-no-support"
 
 # Set tailscaled directory variables

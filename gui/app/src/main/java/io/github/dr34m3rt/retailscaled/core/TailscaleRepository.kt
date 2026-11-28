@@ -35,8 +35,28 @@ class TailscaleRepository(
         return raw.replace(Regex("[^a-z0-9-]+"), "-").trim('-').ifBlank { "android-device" }
     }
 
+    suspend fun readBridgeHealth(): BridgeHealthResponse? {
+        return bridgeClient.health()
+    }
+
     suspend fun readModuleVersion(): String? {
         return bridgeClient.health()?.moduleVersion?.takeIf { it.isNotBlank() }
+    }
+
+    suspend fun setVpnBypass(enabled: Boolean): ShellResult {
+        val res = bridgeClient.setVpnBypass(enabled)
+            ?: return ShellResult(-1, "", "无法连接 REtailscaled 模块服务")
+        return if (res.ok) {
+            val msg = when {
+                enabled && res.restarted -> "已开启绕过系统 VPN，tailscaled 已重启生效"
+                !enabled && res.restarted -> "已关闭绕过系统 VPN，tailscaled 已重启生效"
+                enabled -> "已开启绕过系统 VPN，将在下次启动时生效"
+                else -> "已关闭绕过系统 VPN，将在下次启动时生效"
+            }
+            ShellResult(0, msg, "")
+        } else {
+            ShellResult(1, res.output, res.error.ifBlank { "更新绕过系统 VPN 配置失败" })
+        }
     }
 
     suspend fun fetchStatus(): TailscaleLoadState {

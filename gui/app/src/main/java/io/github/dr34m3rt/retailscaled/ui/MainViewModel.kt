@@ -34,11 +34,13 @@ data class MainUiState(
     val loadState: TailscaleLoadState = TailscaleLoadState.Loading,
     val settings: AppSettings = AppSettings(),
     val moduleVersion: String? = null,
+    val vpnBypassEnabled: Boolean = true,
     val isRefreshing: Boolean = false,
     val isToggling: Boolean = false,
     val isLoggingIn: Boolean = false,
     val capturedAuthUrl: String? = null,
     val isUpdatingExitNode: Boolean = false,
+    val isUpdatingVpnBypass: Boolean = false,
     val pingDialog: PingDialogState? = null,
     val snackbarMessage: String? = null
 )
@@ -72,8 +74,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
             val newState = repository.fetchStatus()
-            val modVer = if (newState !is TailscaleLoadState.BridgeUnavailable) {
-                repository.readModuleVersion()
+            val health = if (newState !is TailscaleLoadState.BridgeUnavailable) {
+                repository.readBridgeHealth()
             } else {
                 null
             }
@@ -86,7 +88,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _uiState.update {
                 it.copy(
                     loadState = newState,
-                    moduleVersion = modVer ?: it.moduleVersion,
+                    moduleVersion = health?.moduleVersion?.takeIf { v -> v.isNotBlank() } ?: it.moduleVersion,
+                    vpnBypassEnabled = health?.vpnBypass ?: it.vpnBypassEnabled,
                     isRefreshing = false,
                     settings = repository.currentSettings()
                 )
@@ -244,6 +247,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 )
             }
+        }
+    }
+
+    fun setVpnBypass(enabled: Boolean) {
+        if (_uiState.value.isUpdatingVpnBypass) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUpdatingVpnBypass = true) }
+            val result = repository.setVpnBypass(enabled)
+            val newState = repository.fetchStatus()
+            val health = if (newState !is TailscaleLoadState.BridgeUnavailable) {
+                repository.readBridgeHealth()
+            } else {
+                null
+            }
+            _uiState.update {
+                it.copy(
+                    loadState = newState,
+                    vpnBypassEnabled = health?.vpnBypass ?: if (result.isSuccess) enabled else it.vpnBypassEnabled,
+                    isUpdatingVpnBypass = false,
+                    snackbarMessage = if (result.isSuccess) {
+                        result.combinedOutput.ifBlank { "绕过系统 VPN 配置已更新" }
+                    } else {
+                        result.combinedOutput.ifBlank { "更新绕过系统 VPN 配置失败" }
+                    }
+                )
+            }
+            requestTileSync()
         }
     }
 

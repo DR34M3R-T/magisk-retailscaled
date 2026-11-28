@@ -21,7 +21,22 @@ data class BridgeAuthConfig(
 @Serializable
 data class BridgeHealthResponse(
     val ok: Boolean = false,
-    val moduleVersion: String = ""
+    val moduleVersion: String = "",
+    val vpnBypass: Boolean = true
+)
+
+@Serializable
+private data class BridgeVpnBypassRequest(
+    val enabled: Boolean
+)
+
+@Serializable
+data class BridgeVpnBypassResponse(
+    val ok: Boolean = false,
+    val enabled: Boolean = true,
+    val restarted: Boolean = false,
+    val output: String = "",
+    val error: String = ""
 )
 
 @Serializable
@@ -181,6 +196,26 @@ class BridgeClient(context: Context) {
         payload = json.encodeToString(BridgeExitNodeRequest(exitNode)),
         readTimeoutMs = 15_000
     )
+
+    suspend fun setVpnBypass(enabled: Boolean): BridgeVpnBypassResponse? = withContext(Dispatchers.IO) {
+        val auth = readAuth() ?: return@withContext null
+        runCatching {
+            val conn = openConnection(auth, "/api/vpn-bypass", "POST", readTimeoutMs = 25_000)
+            try {
+                conn.outputStream.use { it.write(json.encodeToString(BridgeVpnBypassRequest(enabled)).toByteArray()) }
+                val code = conn.responseCode
+                val stream = if (code in 200..299) conn.inputStream else conn.errorStream
+                val body = stream?.bufferedReader()?.use(BufferedReader::readText).orEmpty()
+                if (body.trim().startsWith("{")) {
+                    json.decodeFromString<BridgeVpnBypassResponse>(body)
+                } else {
+                    BridgeVpnBypassResponse(ok = false, enabled = enabled, error = body.ifBlank { "HTTP $code" })
+                }
+            } finally {
+                conn.disconnect()
+            }
+        }.getOrNull()
+    }
 
     suspend fun streamBrowserLogin(
         acceptDnsFalse: Boolean,

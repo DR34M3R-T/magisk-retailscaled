@@ -29,12 +29,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,9 +57,20 @@ fun SettingsScreen(
     uiState: MainUiState,
     onSaveSettings: (AppSettings) -> Unit,
     onSelectExitNode: (String) -> Unit,
+    onToggleVpnBypass: (Boolean) -> Unit,
     onOpenWebUi: () -> Unit,
+    onSnackbarConsumed: () -> Unit,
     onBack: () -> Unit
 ) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(uiState.snackbarMessage) {
+        val msg = uiState.snackbarMessage
+        if (!msg.isNullOrBlank()) {
+            snackbarHostState.showSnackbar(msg)
+            onSnackbarConsumed()
+        }
+    }
+
     val current = uiState.settings
     var acceptDnsFalse by rememberSaveable(current.acceptDnsFalse) { mutableStateOf(current.acceptDnsFalse) }
     var socks5Address by rememberSaveable(current.socks5Address) { mutableStateOf(current.socks5Address) }
@@ -76,7 +91,8 @@ fun SettingsScreen(
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -261,6 +277,32 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text("绕过系统 VPN（tun0）直连物理网卡", fontWeight = FontWeight.Medium)
+                            Text(
+                                text = if (uiState.isUpdatingVpnBypass) {
+                                    "正在应用配置并重启 tailscaled..."
+                                } else {
+                                    "默认开启。为 tailscaled 出站流量添加内核保护标记（SO_MARK=0x20000），使其不受 FlClash 节点选择与 IPv6 开关影响；切换后自动重启 tailscaled 生效。"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = uiState.vpnBypassEnabled,
+                            enabled = !uiState.isUpdatingVpnBypass && uiState.loadState !is TailscaleLoadState.BridgeUnavailable,
+                            onCheckedChange = onToggleVpnBypass
+                        )
+                    }
+
+                    HorizontalDivider()
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),

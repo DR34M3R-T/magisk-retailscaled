@@ -90,6 +90,124 @@ func init() {
 }
 EOF
 
+# Inject Android VPN bypass support (SO_MARK=0x20000 / FWMARK_PROTECTED_FROM_VPN)
+# so tailscaled's outbound traffic bypasses Android VPN tun0 (e.g. FlClash) when TS_BYPASS_VPN=1.
+cat <<'EOF' > net/netns/netns_android_bypass.go
+//go:build linux && !android
+
+package netns
+
+import (
+	"log"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+
+	"golang.org/x/sys/unix"
+)
+
+const defaultAndroidVpnBypassMark = 0x20000 // AOSP FWMARK_PROTECTED_FROM_VPN
+
+var (
+	androidBypassOnce    sync.Once
+	androidBypassEnabled bool
+	androidBypassMark    int
+)
+
+func loadAndroidVpnBypassConfig() {
+	raw := strings.TrimSpace(strings.ToLower(os.Getenv("TS_BYPASS_VPN")))
+	switch raw {
+	case "1", "true", "yes", "on":
+		androidBypassEnabled = true
+	default:
+		androidBypassEnabled = false
+	}
+
+	androidBypassMark = defaultAndroidVpnBypassMark
+	if markStr := strings.TrimSpace(os.Getenv("TS_BYPASS_VPN_MARK")); markStr != "" {
+		if v, err := strconv.ParseInt(markStr, 0, 32); err == nil && v > 0 {
+			androidBypassMark = int(v)
+		}
+	}
+
+	if androidBypassEnabled {
+		log.Printf("netns: Android VPN bypass enabled (SO_MARK=0x%x)", androidBypassMark)
+	}
+}
+
+func isAndroidVpnBypassEnabled() bool {
+	androidBypassOnce.Do(loadAndroidVpnBypassConfig)
+	return androidBypassEnabled
+}
+
+func getAndroidVpnBypassMark() int {
+	androidBypassOnce.Do(loadAndroidVpnBypassConfig)
+	return androidBypassMark
+}
+
+func setAndroidVpnBypassMark(fd uintptr) error {
+	mark := getAndroidVpnBypassMark()
+	cur, err := unix.GetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_MARK)
+	if err != nil {
+		cur = 0
+	}
+	return unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_MARK, cur|mark)
+}
+EOF
+
+python3 - <<'PYEOF'
+from pathlib import Path
+import sys
+
+def replace_exact(path_str: str, old: str, new: str) -> None:
+    p = Path(path_str)
+    content = p.read_text(encoding="utf-8")
+    count = content.count(old)
+    if count != 1:
+        sys.exit(f"Expected 1 occurrence in {path_str}, found {count}")
+    p.write_text(content.replace(old, new, 1), encoding="utf-8")
+
+# 1. Keep netns enabled in userspace-networking mode when TS_BYPASS_VPN=1
+replace_exact(
+    "net/netns/netns.go",
+    """func SetEnabled(on bool) {
+\tdisabled.Store(!on)
+}""",
+    """func SetEnabled(on bool) {
+\tif !on && isAndroidVpnBypassEnabled() {
+\t\tdisabled.Store(false)
+\t\treturn
+\t}
+\tdisabled.Store(!on)
+}""",
+)
+
+# 2. Apply Android FWMARK_PROTECTED_FROM_VPN (0x20000) in setBypassMark when TS_BYPASS_VPN=1
+replace_exact(
+    "net/netns/netns_linux.go",
+    """func setBypassMark(fd uintptr) error {
+\tif err := unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_MARK, tsconst.LinuxBypassMarkNum); err != nil {
+\t\treturn fmt.Errorf("setting SO_MARK bypass: %w", err)
+\t}
+\treturn nil
+}""",
+    """func setBypassMark(fd uintptr) error {
+\tif isAndroidVpnBypassEnabled() {
+\t\tif err := setAndroidVpnBypassMark(fd); err != nil {
+\t\t\treturn fmt.Errorf("setting Android VPN bypass SO_MARK: %w", err)
+\t\t}
+\t\treturn nil
+\t}
+\tif err := unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_MARK, tsconst.LinuxBypassMarkNum); err != nil {
+\t\treturn fmt.Errorf("setting SO_MARK bypass: %w", err)
+\t}
+\treturn nil
+}""",
+)
+print("Successfully patched net/netns for Android VPN bypass (SO_MARK=0x20000).")
+PYEOF
+
 BUILD_TAGS="ts_include_cli,ts_omit_aws,ts_omit_bird,ts_omit_c2n,ts_omit_kube,ts_omit_synology,ts_omit_tap,ts_omit_tpm,ts_omit_wakeonlan"
 LDFLAGS="-s -w -X 'tailscale.com/version.longStamp=${TS_VER} (Magisk)' -X tailscale.com/version.shortStamp=${TS_VER}"
 

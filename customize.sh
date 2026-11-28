@@ -69,7 +69,7 @@ if [ -d "$TS_DIR" ]; then
 	rm -rf "$TS_DIR/backups/$versionCode/" && mkdir -p "$TS_DIR/backups/$versionCode/"
 	for p in "$TS_DIR"/*; do
 		case "$(basename "$p")" in
-		ssh | certs | backups | tailscaled.state | state) ;;
+		ssh | certs | backups | tailscaled.state | state | vpn_bypass) ;;
 		*)
 			mv -f -- "$p" "$TS_DIR/backups/$versionCode/"
 			;;
